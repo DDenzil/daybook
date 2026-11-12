@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daybook</title>
+<meta name="description" content="Personal projects and daily routine tracker">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Daybook">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F6F6F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B0B0D" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- First-run: connect to the private data repo -->
+<section id="setup" class="setup" hidden>
+  <div class="setup-card">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>Daybook</span></div>
+    <h1>Connect your data</h1>
+    <p class="muted">Your tasks live as CSV files in a <b>private</b> GitHub repo. The token stays on this device only.</p>
+    <form id="setupForm" class="stack" autocomplete="off">
+      <label class="field"><span>Your name</span><input name="name" placeholder="Denzil" autocomplete="given-name"></label>
+      <label class="field"><span>GitHub username</span><input name="owner" required autocapitalize="off" spellcheck="false"></label>
+      <label class="field"><span>Private data repo</span><input name="repo" required value="daybook-data" autocapitalize="off" spellcheck="false"></label>
+      <label class="field"><span>Fine-grained access token</span><input name="token" type="password" required autocapitalize="off" spellcheck="false" placeholder="github_pat_…"></label>
+      <p class="hint">Token access: only the data repo. Permissions: Contents, Actions and Workflows set to Read and write.</p>
+      <p id="setupError" class="error" role="alert" hidden></p>
+      <button class="btn primary block" type="submit">Connect</button>
+    </form>
+  </div>
+</section>
+
+<!-- Main app -->
+<div id="app" class="app" hidden>
+  <nav class="rail" aria-label="Main">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>Daybook</span></div>
+    <div class="rail-links" id="railLinks"></div>
+  </nav>
+  <main id="main">
+    <div class="topbar">
+      <span id="topTitle" class="eyebrow"></span>
+      <button id="syncPill" class="sync" data-act="syncNow" type="button"><span class="dot"></span><span class="label">Synced</span></button>
+    </div>
+    <div id="view"></div>
+  </main>
+  <button class="fab" data-act="add" type="button" aria-label="Add item"></button>
+  <nav class="tabbar" id="tabbar" aria-label="Tabs"></nav>
+</div>
+
+<dialog id="sheet" class="sheet" aria-labelledby="sheetTitle"></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
