@@ -3,7 +3,7 @@
    No build step, no dependencies. */
 'use strict';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PALETTE = ['#2563EB', '#0F766E', '#DB2777', '#EA580C', '#16A34A', '#7C3AED', '#CA8A04', '#0891B2', '#DC2626', '#64748B'];
 const DEFAULT_CATS = [
@@ -95,11 +95,14 @@ function linkLabel(u) {
   try { const x = new URL(u); const last = decodeURIComponent(x.pathname.split('/').filter(Boolean).pop() || ''); return last || x.hostname; }
   catch { return u; }
 }
+// Pages on Daybook's own site open inside the app (full screen, no browser bars); other sites open in a new tab.
+const APP_SCOPE = new URL('./', location.href).href;
+const linkTarget = (u) => (u.startsWith(APP_SCOPE) ? '' : ' target="_blank" rel="noopener"');
 function linkify(text) {
   text = String(text || ''); let out = '', last = 0;
   text.replace(URL_RE, (m, idx) => {
     const url = m.replace(/[.,;:!?)\]]+$/, '');
-    out += esc(text.slice(last, idx)) + `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(linkLabel(url))} ↗</a>` + esc(m.slice(url.length));
+    out += esc(text.slice(last, idx)) + `<a href="${esc(url)}"${linkTarget(url)}>${esc(linkLabel(url))} ↗</a>` + esc(m.slice(url.length));
     last = idx + m.length; return m;
   });
   return out + esc(text.slice(last));
@@ -626,7 +629,7 @@ function openSheet(t, preset = {}) {
     <label class="switch only-routine"><span>Paused</span><input type="checkbox" name="paused" ${t.status === 'paused' ? 'checked' : ''}></label>
     <label class="switch only-project"><span>Finished</span><input type="checkbox" name="pdone" ${t.kind === 'project' && t.status === 'done' ? 'checked' : ''}></label>
     <label class="field"><span>Notes</span><textarea name="notes" placeholder="Optional">${esc(t.notes)}</textarea></label>
-    ${urlsIn(t.notes).length ? `<div class="links">${urlsIn(t.notes).map((u) => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">Open ${esc(linkLabel(u))} ↗</a>`).join('')}</div>` : ''}
+    ${urlsIn(t.notes).length ? `<div class="links">${urlsIn(t.notes).map((u) => `<a class="btn" href="${esc(u)}"${linkTarget(u)}>Open ${esc(linkLabel(u))} ↗</a>`).join('')}</div>` : ''}
     <p class="error" id="sheetError" hidden></p>
     <div class="sheet-actions">
       ${isNew ? '' : '<button type="button" class="btn danger" data-act="deleteItem">Delete</button>'}

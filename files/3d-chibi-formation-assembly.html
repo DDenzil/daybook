@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>3D Chibi Formation Assembly</title>
+    <!-- Runs without browser bars when opened from the Home Screen or inside the Daybook app -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Formation">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#f2f4f7">
     <!-- Three.js Core (r128) and OrbitControls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -155,6 +161,10 @@
             #status-banner { display: block; }
         }
 
+        .back-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin: -4px -2px -4px -6px; border-radius: 10px; color: var(--ink-2); }
+        .back-btn:hover { background: rgba(226, 232, 240, 0.7); }
+        .back-btn svg { width: 18px; height: 18px; }
+
         /* ---------- Auto-hiding HUD: everything fades out while the animation plays ---------- */
         .hud-top, .hud-bottom, #studio-settings-panel { transition: opacity 0.35s ease, transform 0.35s ease; }
         body.hud-hidden .hud-top, body.hud-hidden .hud-bottom, body.hud-hidden #studio-settings-panel { opacity: 0; }
@@ -171,6 +181,9 @@
     <!-- Top Header & Live Formation Counters -->
     <header class="hud-top">
         <div class="glass title-badge">
+            <button id="btn-back" class="back-btn hidden" aria-label="Back">
+                <svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6"></path></svg>
+            </button>
             <span class="live-dot"></span>
             <div>
                 <h1>10×5 Formation Assembly</h1>
@@ -274,9 +287,9 @@
                 <span id="time-elapsed" class="now tabular">0:00</span>
                 <div class="track">
                     <div id="timeline-fill" style="width: 0%"></div>
-                    <input id="timeline-scrubber" type="range" min="0" max="42" step="0.05" value="0" class="timeline-slider" aria-label="Timeline">
+                    <input id="timeline-scrubber" type="range" min="0" max="44" step="0.05" value="0" class="timeline-slider" aria-label="Timeline">
                 </div>
-                <span id="time-total" class="total tabular">0:42</span>
+                <span id="time-total" class="total tabular">0:44</span>
             </div>
 
             <div class="controls">
@@ -293,6 +306,9 @@
                     <button id="btn-quick-shuffle" class="pbtn ghost" title="Randomize Starting Positions" aria-label="Shuffle spawns">
                         <svg class="icon" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4l5 5m0 0h-4m4 0v-4m11 11l-5-5m0 0h4m-4 0v4M4 20l16-16"></path></svg>
                         <span class="lbl-wide">Shuffle Spawns</span>
+                    </button>
+                    <button id="btn-fullscreen" class="pbtn ghost hidden" title="Full screen" aria-label="Full screen">
+                        <svg class="icon" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg>
                     </button>
                 </div>
 
@@ -350,7 +366,7 @@
             rows: 5,
             spacingX: 1.75,
             spacingZ: 1.85,
-            totalDuration: 42.0, // 42 seconds full choreography
+            totalDuration: 44.0, // 44 seconds: leaves time for late crawlers to stand and sitters to sit
             steadyHex: '#34b368',
             stumblerHex: '#e64848',
             spawnSeed: 101
@@ -850,6 +866,17 @@
             let redCounter = 0;
             let greenCounter = 0;
 
+            // Randomly pick 0-3 stumblers who crawl the last stretch, and 0-3 others who sit at their spot.
+            // Seeded from the spawn seed, so scrubbing is repeatable and Shuffle re-rolls them.
+            const redOrderShuffled = Array.from({ length: redCount }, (_, i) => i)
+                .sort((a, b) => seededRandom(CONFIG.spawnSeed * 3 + a * 31) - seededRandom(CONFIG.spawnSeed * 3 + b * 31));
+            const crawlCount = Math.min(redCount, Math.floor(seededRandom(CONFIG.spawnSeed * 7 + 3) * 4));
+            const sitCount = Math.min(redCount - crawlCount, Math.floor(seededRandom(CONFIG.spawnSeed * 7 + 9) * 4));
+            const crawlerOrders = new Set(redOrderShuffled.slice(0, crawlCount));
+            const sitterOrders = new Set(redOrderShuffled.slice(crawlCount, crawlCount + sitCount));
+            CONFIG.crawlCount = crawlCount;
+            CONFIG.sitCount = sitCount;
+
             slotCoords.forEach((targetPos, idx) => {
                 const isRed = redSlotIndices.has(idx);
                 const charSeed = CONFIG.spawnSeed * 31 + idx * 17 + 5;
@@ -864,6 +891,7 @@
 
                 // Build movement & fall schedule (scaled cleanly to 38-42s full duration)
                 let startTime, walkDuration, falls = [];
+                let isCrawler = false, isSitter = false, crawlStart = Infinity, walkPre = 0;
                 const distance = startPos.distanceTo(targetPos);
 
                 if (!isRed) {
@@ -896,6 +924,22 @@
 
                     const totalFallPauseTime = falls.reduce((acc, f) => acc + f.duration, 0);
                     walkDuration = Math.max(6.0, (totalArrivalTarget - startTime) - totalFallPauseTime);
+
+                    isCrawler = crawlerOrders.has(redCounter);
+                    isSitter = sitterOrders.has(redCounter);
+                    if (isCrawler) {
+                        // Last fall comes a little earlier, lands face-down, and they never get back up:
+                        // they rise onto hands and knees and crawl the rest of the way.
+                        const last = falls[falls.length - 1];
+                        const prev = falls[falls.length - 2];
+                        last.start = Math.max(prev ? prev.start + prev.duration + 0.6 : startTime + 1.5, last.start - segment * 0.25);
+                        last.direction = 1;
+                        last.toCrawl = true;
+                        crawlStart = last.start + last.duration;
+                        walkPre = Math.max(0.5, (last.start - startTime) - falls.slice(0, -1).reduce((a, f) => a + f.duration, 0));
+                        const remainingUnits = Math.max(1.5, (totalArrivalTarget - crawlStart) / CRAWL_SLOWDOWN);
+                        walkDuration = walkPre + remainingUnits;
+                    }
                     redCounter++;
                 }
 
@@ -905,6 +949,10 @@
                 characters.push({
                     id: idx,
                     isRed,
+                    isCrawler,
+                    isSitter,
+                    crawlStart,
+                    walkPre,
                     redOrder: isRed ? redCounter - 1 : -1,
                     slotIndex: idx,
                     rig: meshRig,
@@ -1013,6 +1061,9 @@
             rig.pelvis.rotation.set(0, 0, 0);
             rig.torsoGroup.rotation.set(0, 0, 0);
             rig.headGroup.rotation.set(0, 0, 0);
+            // Reset every limb too, so scrubbing between crawl / sit / walk never leaves a joint bent
+            [rig.leftArm, rig.rightArm].forEach(a => { a.shoulder.rotation.set(0, 0, 0); a.elbow.rotation.set(0, 0, 0); a.hand.rotation.set(0, 0, 0); });
+            [rig.leftLeg, rig.rightLeg].forEach(l => { l.hip.rotation.set(0, 0, 0); l.knee.rotation.set(0, 0, 0); l.foot.rotation.set(0, 0, 0); });
 
             // 1. Check if character hasn't started walking yet
             if (t <= char.startTime) {
@@ -1057,6 +1108,12 @@
                 effectiveWalkTime += (t - cursor);
             }
 
+            // Crawlers move slower once they are down on hands and knees
+            const crawling = char.isCrawler && !activeFall && t >= char.crawlStart;
+            if (crawling) {
+                effectiveWalkTime = char.walkPre + (t - char.crawlStart) / CRAWL_SLOWDOWN;
+            }
+
             // Progress along path [0..1]
             const rawProgress = Math.min(1.0, effectiveWalkTime / char.walkDuration);
             // Smooth ease-in-out at very start and arrival
@@ -1077,7 +1134,7 @@
             pos.addScaledVector(perp, arcOffset);
 
             // Add erratic side-to-side wobble for Red characters while walking
-            if (char.isRed && rawProgress < 1.0) {
+            if (char.isRed && rawProgress < 1.0 && !crawling) {
                 const wobbleEnv = Math.sin(rawProgress * Math.PI); // Taper wobble at start and end
                 const lateralWobble = Math.sin(effectiveWalkTime * char.wobbleFreq + char.walkPhaseOffset) * 0.65 * wobbleEnv;
                 pos.addScaledVector(perp, lateralWobble);
@@ -1111,6 +1168,12 @@
                 let fallPitch = 0;
                 let groundSink = 0;
                 let pushUpExtension = 0;
+
+                if (activeFall.toCrawl && fT >= 0.62) {
+                    // Phase D (crawlers): instead of standing up, get onto hands and knees
+                    applyCrawlPose(rig, char.walkPhaseOffset, smoothstep(0.62, 1.0, fT), LYING_POSE);
+                    return;
+                }
 
                 if (fT < 0.22) {
                     // Phase A: Trip & Fall rapidly onto ground (with slight bounce)
@@ -1150,6 +1213,16 @@
 
                 // Head looks up slightly while pushing back up
                 rig.headGroup.rotation.x = -d * pushUpExtension * 0.45;
+                return;
+            }
+
+            // 4a. Crawling State (crawlers after their last fall)
+            if (crawling && rawProgress < 1.0) {
+                char.arrived = false;
+                char.currentYaw = travelYaw;
+                rig.root.rotation.y = travelYaw;
+                const crawlCycle = (t - char.crawlStart) * 5.0 + char.walkPhaseOffset;
+                applyCrawlPose(rig, crawlCycle, 1, LYING_POSE);
                 return;
             }
 
@@ -1202,7 +1275,20 @@
 
             // 5. Arrived at Grid Spot: Turn forward (+Z) & Strike Iconic 'Hands-On-Hips' Pose!
             char.arrived = true;
-            const timeSinceArrival = effectiveWalkTime - char.walkDuration;
+            let timeSinceArrival = effectiveWalkTime - char.walkDuration;
+
+            if (char.isCrawler) {
+                // Arrived on all fours: push up to standing first, then strike the pose
+                const realSince = timeSinceArrival * CRAWL_SLOWDOWN;
+                const rise = smoothstep(0, 1.4, realSince);
+                if (rise < 1) {
+                    char.currentYaw = travelYaw;
+                    rig.root.rotation.y = travelYaw;
+                    applyCrawlPose(rig, 0, 1 - rise, STANDING_POSE);
+                    return;
+                }
+                timeSinceArrival = realSince - 1.4;
+            }
             const settleBlend = smoothstep(0, 0.85, timeSinceArrival); // 0.85s smooth transition
 
             // Shortest angular interpolation from arrival tangent heading to facing camera (yaw = 0)
@@ -1212,6 +1298,14 @@
             const currentYaw = lerp(startYaw, 0, settleBlend);
             char.currentYaw = currentYaw;
             rig.root.rotation.y = currentYaw;
+
+            if (char.isSitter) {
+                // Sitters turn to the front and sit down on their spot, hands resting on their knees
+                applyIdleArmsDownPose(rig, 0);
+                applyNeutralLegsPose(rig);
+                applySitPose(rig, smoothstep(0.35, 1.9, timeSinceArrival), t, char.walkPhaseOffset);
+                return;
+            }
 
             // Gentle proud breathing idle once in formation
             const idleBreath = Math.sin(t * 2.6 + char.walkPhaseOffset) * 0.018 * settleBlend;
@@ -1253,6 +1347,66 @@
             rig.rightArm.hand.rotation.set(0, 0, lerp(0, -0.35, poseT));
         }
 
+        // Crawl / sit poses. Angles are relative to the body: with the body pitched forward by P,
+        // a limb rotated by -P hangs straight down, and a knee bent 90 degrees lays the shin flat.
+        const CRAWL_SLOWDOWN = 1.6;           // crawling covers ground 1.6x slower than walking
+        const CRAWL_PITCH = 1.02;             // ~58 degrees forward: hands and knees both reach the floor
+        const CRAWL_LIFT = 0.05;
+        const LYING_POSE = { pitch: Math.PI / 2 - 0.08, lift: 0.26, shoulderX: -0.6, shoulderZ: 0.45, elbowX: -0.4, hipX: 0, hipZ: 0, kneeX: 0, headX: 0 };
+        const STANDING_POSE = { pitch: 0, lift: 0, shoulderX: 0, shoulderZ: 0.18, elbowX: -0.2, hipX: 0, hipZ: 0.04, kneeX: 0, headX: 0 };
+
+        /**
+         * Hands-and-knees crawl. w = 1 is the full crawl pose; w = 0 is the `base` pose
+         * (lying flat after a fall, or standing upright), so the same function handles
+         * getting down onto all fours and getting back up.
+         */
+        function applyCrawlPose(rig, cycle, w, base) {
+            const P = CRAWL_PITCH;
+            const s = Math.sin(cycle);
+            rig.fallPivot.rotation.x = lerp(base.pitch, P, w);
+            rig.fallPivot.position.y = lerp(base.lift, CRAWL_LIFT, w);
+            rig.pelvis.position.y = 0.82 + Math.abs(Math.cos(cycle)) * 0.025 * w;
+            rig.torsoGroup.rotation.set(0, 0, Math.sin(cycle) * 0.07 * w);
+            rig.headGroup.rotation.set(lerp(base.headX, -0.8, w), 0, 0);
+
+            // Opposite arm and knee move together
+            rig.leftArm.shoulder.rotation.set(lerp(base.shoulderX, -P - s * 0.32, w), 0, lerp(-base.shoulderZ, -0.08, w));
+            rig.rightArm.shoulder.rotation.set(lerp(base.shoulderX, -P + s * 0.32, w), 0, lerp(base.shoulderZ, 0.08, w));
+            rig.leftArm.elbow.rotation.set(lerp(base.elbowX, -0.1 - Math.max(0, -s) * 0.3, w), 0, 0);
+            rig.rightArm.elbow.rotation.set(lerp(base.elbowX, -0.1 - Math.max(0, s) * 0.3, w), 0, 0);
+            rig.leftArm.hand.rotation.set(0, 0, 0);
+            rig.rightArm.hand.rotation.set(0, 0, 0);
+
+            rig.leftLeg.hip.rotation.set(lerp(base.hipX, -P + s * 0.26, w), 0, lerp(-base.hipZ, -0.07, w));
+            rig.rightLeg.hip.rotation.set(lerp(base.hipX, -P - s * 0.26, w), 0, lerp(base.hipZ, 0.07, w));
+            rig.leftLeg.knee.rotation.set(lerp(base.kneeX, Math.PI / 2 + 0.08 + Math.max(0, s) * 0.22, w), 0, 0);
+            rig.rightLeg.knee.rotation.set(lerp(base.kneeX, Math.PI / 2 + 0.08 + Math.max(0, -s) * 0.22, w), 0, 0);
+            rig.leftLeg.foot.rotation.set(0, 0, 0);
+            rig.rightLeg.foot.rotation.set(0, 0, 0);
+        }
+
+        /** Sitting on the floor, knees up, hands resting on the knees. w = 0 standing, 1 seated. */
+        function applySitPose(rig, w, t, phase) {
+            const breath = Math.sin(t * 2.4 + phase) * 0.012 * w;
+            rig.pelvis.position.y = lerp(0.82, 0.27, w);
+            rig.torsoGroup.rotation.set(lerp(0, -0.12, w) + breath, 0, 0);
+            rig.headGroup.rotation.set(lerp(0, 0.1, w), 0, 0);
+
+            rig.leftLeg.hip.rotation.set(lerp(0, -1.9, w), 0, lerp(-0.04, -0.16, w));
+            rig.rightLeg.hip.rotation.set(lerp(0, -1.9, w), 0, lerp(0.04, 0.16, w));
+            rig.leftLeg.knee.rotation.set(lerp(0, 1.2, w), 0, 0);
+            rig.rightLeg.knee.rotation.set(lerp(0, 1.2, w), 0, 0);
+            rig.leftLeg.foot.rotation.set(lerp(0, 0.7, w), 0, 0);
+            rig.rightLeg.foot.rotation.set(lerp(0, 0.7, w), 0, 0);
+
+            rig.leftArm.shoulder.rotation.set(lerp(0, -0.75, w), 0, lerp(-0.18, -0.14, w));
+            rig.rightArm.shoulder.rotation.set(lerp(0, -0.75, w), 0, lerp(0.18, 0.14, w));
+            rig.leftArm.elbow.rotation.set(lerp(-0.2, -0.04, w), 0, 0);
+            rig.rightArm.elbow.rotation.set(lerp(-0.2, -0.04, w), 0, 0);
+            rig.leftArm.hand.rotation.set(0, 0, 0);
+            rig.rightArm.hand.rotation.set(0, 0, 0);
+        }
+
         function applyIdleArmsDownPose(rig, breath) {
             rig.leftArm.shoulder.rotation.set(0, 0, -0.18 - breath);
             rig.rightArm.shoulder.rotation.set(0, 0, 0.18 + breath);
@@ -1267,6 +1421,8 @@
             rig.rightLeg.hip.rotation.set(0, 0, 0.04);
             rig.leftLeg.knee.rotation.set(0, 0, 0);
             rig.rightLeg.knee.rotation.set(0, 0, 0);
+            rig.leftLeg.foot.rotation.set(0, 0, 0);
+            rig.rightLeg.foot.rotation.set(0, 0, 0);
         }
 
         // ==========================================
@@ -1650,6 +1806,51 @@
             });
         }
 
+        // ==========================================
+        // 8c. FULL SCREEN + BACK
+        // ==========================================
+        // Where the browser allows it (computers, Android, iPad) playback goes full screen.
+        // iPhone Safari only allows that for videos, so on iPhone open this page from the
+        // Daybook app or a Home Screen icon, which already hides the browser bars.
+        const fsRoot = document.documentElement;
+        const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+        const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+        function enterFullscreen() {
+            if (!fsSupported || isFullscreen()) return;
+            const req = fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen;
+            try {
+                const p = req.call(fsRoot, { navigationUI: 'hide' });
+                if (p && p.catch) p.catch(() => {});
+            } catch (e) { /* ignore: browser refused */ }
+        }
+        function exitFullscreen() {
+            const ex = document.exitFullscreen || document.webkitExitFullscreen;
+            if (isFullscreen() && ex) ex.call(document);
+        }
+
+        function initFullscreenAndBack() {
+            const fsBtn = document.getElementById('btn-fullscreen');
+            if (fsSupported) {
+                fsBtn.classList.remove('hidden');
+                fsBtn.addEventListener('click', () => (isFullscreen() ? exitFullscreen() : enterFullscreen()));
+                // The first touch or click while playing takes the page full screen
+                document.addEventListener('pointerup', () => { if (state.isPlaying) enterFullscreen(); }, { capture: true, once: true });
+                ['btn-play-pause', 'btn-restart', 'btn-quick-shuffle', 'btn-apply-regenerate'].forEach(id =>
+                    document.getElementById(id).addEventListener('click', () => { if (state.isPlaying) enterFullscreen(); }));
+            }
+
+            const back = document.getElementById('btn-back');
+            if (history.length > 1 || document.referrer) {
+                back.classList.remove('hidden');
+                back.addEventListener('click', () => {
+                    exitFullscreen();
+                    if (history.length > 1) history.back();
+                    else location.href = document.referrer || '../';
+                });
+            }
+        }
+
         function animate(now) {
             requestAnimationFrame(animate);
 
@@ -1688,6 +1889,7 @@
             buildSimulation();
             initUI();
             initHudAutoHide();
+            initFullscreenAndBack();
             document.body.classList.add('hud-hidden'); // playing from the start, so start clean
             hudVisible = false;
             requestAnimationFrame(animate);
