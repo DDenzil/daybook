@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Chibi Formation Assembly</title>
+    <!-- Tailwind CSS for clean minimalist HUD controls -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Three.js Core (r128) and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f3f4f6;
+        }
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+        /* Custom subtle glassmorphism HUD */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+        }
+        /* Custom range slider for timeline scrubbing */
+        input[type=range].timeline-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type=range].timeline-slider::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 999px;
+            background: #e2e8f0;
+        }
+        input[type=range].timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #0f172a;
+            border: 2px solid #ffffff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.25);
+            margin-top: -5px;
+            transition: transform 0.15s ease;
+        }
+        input[type=range].timeline-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        /* Custom color swatch & range input styling */
+        input[type=color].shade-picker {
+            -webkit-appearance: none;
+            appearance: none;
+            border: none;
+            padding: 0;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type=color].shade-picker::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type=color].shade-picker::-webkit-color-swatch {
+            border: 2px solid #ffffff;
+            border-radius: 999px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+        input[type=range].control-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 5px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            outline: none;
+            cursor: pointer;
+        }
+        input[type=range].control-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #0f172a;
+            border: 2px solid #ffffff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D WebGL Viewport Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Top Header & Live Formation Counters -->
+    <header class="fixed top-4 left-4 right-4 z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pointer-events-none">
+        <!-- Title Badge -->
+        <div class="glass-panel rounded-2xl px-4 py-2.5 pointer-events-auto flex items-center gap-3">
+            <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+            <div>
+                <h1 class="text-sm font-bold text-slate-800 tracking-tight">10×5 Formation Assembly</h1>
+                <p class="text-[11px] text-slate-500 font-medium">Drag to orbit · Scroll to zoom · Right-drag to pan</p>
+            </div>
+        </div>
+
+        <!-- Live Personnel Counter & Camera Presets -->
+        <div class="flex flex-wrap items-center gap-2 pointer-events-auto">
+            <!-- Counters -->
+            <div class="glass-panel rounded-2xl px-3.5 py-2 flex items-center gap-3.5 text-xs font-semibold">
+                <div class="flex items-center gap-2">
+                    <span id="steady-dot" class="w-3 h-3 rounded-full bg-[#34b368] shadow-sm inline-block transition-colors"></span>
+                    <span class="text-slate-600">Steady:</span>
+                    <span id="green-counter" class="text-slate-900 font-bold tabular-nums">0 / 42</span>
+                </div>
+                <div class="h-4 w-px bg-slate-200"></div>
+                <div class="flex items-center gap-2">
+                    <span id="stumbler-dot" class="w-3 h-3 rounded-full bg-[#e64848] shadow-sm inline-block transition-colors"></span>
+                    <span class="text-slate-600">Stumbling:</span>
+                    <span id="red-counter" class="text-slate-900 font-bold tabular-nums">0 / 8</span>
+                </div>
+            </div>
+
+            <!-- Camera View Presets -->
+            <div class="glass-panel rounded-2xl p-1 flex items-center gap-1 text-xs font-medium">
+                <button id="cam-overview" class="cam-btn px-2.5 py-1.5 rounded-xl bg-slate-900 text-white shadow-sm transition-all">
+                    Overview
+                </button>
+                <button id="cam-front" class="cam-btn px-2.5 py-1.5 rounded-xl text-slate-600 hover:bg-slate-200/70 transition-all">
+                    Front Grid
+                </button>
+                <button id="cam-follow-red" class="cam-btn px-2.5 py-1.5 rounded-xl text-slate-600 hover:bg-slate-200/70 transition-all flex items-center gap-1.5">
+                    <span id="cam-stumbler-dot" class="w-2 h-2 rounded-full bg-[#e64848] transition-colors"></span>
+                    Follow Stumbler
+                </button>
+            </div>
+
+            <!-- Studio Settings Drawer Toggle -->
+            <button id="btn-toggle-settings" class="glass-panel rounded-2xl px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-white transition-all flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                </svg>
+                <span>Customize</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Collapsible Studio Customization Panel -->
+    <aside id="studio-settings-panel" class="fixed top-20 right-4 z-20 w-80 max-w-[calc(100vw-2rem)] glass-panel rounded-2xl p-4 flex flex-col gap-4 transition-all duration-200 origin-top-right">
+        <div class="flex items-center justify-between border-b border-slate-200/80 pb-2.5">
+            <div>
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-800">Studio Configuration</h2>
+                <p id="grid-shape-label" class="text-[11px] text-slate-500 font-medium">Formation Grid: 10 × 5 (50 total)</p>
+            </div>
+            <button id="btn-close-settings" class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors" title="Close Panel">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Personnel Count & Stumbling Ratio -->
+        <div class="flex flex-col gap-3">
+            <!-- Total Personnel Count -->
+            <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between text-xs font-semibold">
+                    <label for="input-total-count" class="text-slate-700">Total Personnel</label>
+                    <input id="input-total-number" type="number" min="6" max="120" value="50" class="w-14 px-1.5 py-0.5 text-right text-xs font-bold text-slate-900 bg-white/80 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-500">
+                </div>
+                <input id="input-total-count" type="range" min="6" max="120" step="1" value="50" class="control-slider w-full">
+            </div>
+
+            <!-- Stumbling Group Ratio -->
+            <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between text-xs font-semibold">
+                    <label for="input-stumbler-ratio" class="text-slate-700">Stumbling Group Share</label>
+                    <span id="label-stumbler-share" class="text-slate-900 font-bold tabular-nums">16% (8)</span>
+                </div>
+                <input id="input-stumbler-ratio" type="range" min="0" max="50" step="2" value="16" class="control-slider w-full">
+            </div>
+        </div>
+
+        <!-- Shade Selectors (Live Material Updates) -->
+        <div class="flex flex-col gap-3 border-t border-slate-200/80 pt-3">
+            <!-- Steady Group Shade -->
+            <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-700">Steady Personnel Shade</span>
+                    <div class="flex items-center gap-1.5">
+                        <span id="hex-steady" class="text-[11px] font-mono text-slate-500 uppercase">#34b368</span>
+                        <input id="picker-steady" type="color" value="#34b368" class="shade-picker w-5 h-5" title="Pick Custom Steady Shade">
+                    </div>
+                </div>
+                <div id="swatches-steady" class="flex items-center justify-between gap-1"></div>
+            </div>
+
+            <!-- Stumbling Group Shade -->
+            <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-700">Stumbling Personnel Shade</span>
+                    <div class="flex items-center gap-1.5">
+                        <span id="hex-stumbler" class="text-[11px] font-mono text-slate-500 uppercase">#e64848</span>
+                        <input id="picker-stumbler" type="color" value="#e64848" class="shade-picker w-5 h-5" title="Pick Custom Stumbling Shade">
+                    </div>
+                </div>
+                <div id="swatches-stumbler" class="flex items-center justify-between gap-1"></div>
+            </div>
+        </div>
+
+        <!-- Apply & Randomize Positions Button -->
+        <button id="btn-apply-regenerate" class="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white text-xs font-semibold shadow-sm transition-all flex items-center justify-center gap-2">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3"></path>
+            </svg>
+            <span>Apply & Randomize Spawns</span>
+        </button>
+    </aside>
+
+    <!-- Bottom Playback & Timeline HUD -->
+    <footer class="fixed bottom-4 left-4 right-4 z-10 flex justify-center pointer-events-none">
+        <div class="glass-panel rounded-2xl px-4 py-3 w-full max-w-2xl pointer-events-auto flex flex-col gap-2.5">
+            <!-- Top Row: Timeline Scrubber & Elapsed Timer -->
+            <div class="flex items-center gap-3">
+                <span id="time-elapsed" class="text-xs font-semibold text-slate-700 tabular-nums w-10 text-right">0:00</span>
+                <div class="relative flex-1 flex items-center">
+                    <div id="timeline-fill" class="absolute left-0 h-1.5 bg-slate-800 rounded-full pointer-events-none" style="width: 0%"></div>
+                    <input id="timeline-scrubber" type="range" min="0" max="42" step="0.05" value="0" class="timeline-slider w-full z-10">
+                </div>
+                <span id="time-total" class="text-xs font-medium text-slate-400 tabular-nums w-10">0:42</span>
+            </div>
+
+            <!-- Bottom Row: Playback Controls & Speed Toggle -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <!-- Play / Pause Button -->
+                    <button id="btn-play-pause" class="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
+                        <svg id="icon-pause" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                            <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+                            <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+                        </svg>
+                        <svg id="icon-play" class="w-3.5 h-3.5 hidden" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"></path>
+                        </svg>
+                        <span id="label-play-pause">Pause</span>
+                    </button>
+
+                    <!-- Restart Button -->
+                    <button id="btn-restart" class="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 active:scale-95 text-slate-700 border border-slate-200/80 text-xs font-semibold flex items-center gap-1.5 transition-all">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <span>Replay</span>
+                    </button>
+
+                    <!-- Quick Randomize Button -->
+                    <button id="btn-quick-shuffle" class="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 active:scale-95 text-slate-700 border border-slate-200/80 text-xs font-semibold flex items-center gap-1.5 transition-all" title="Randomize Starting Positions">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4l5 5m0 0h-4m4 0v-4m11 11l-5-5m0 0h4m-4 0v4M4 20l16-16"></path>
+                        </svg>
+                        <span class="hidden sm:inline">Shuffle Spawns</span>
+                    </button>
+                </div>
+
+                <!-- Status Message -->
+                <div id="status-banner" class="hidden md:block text-xs font-medium text-slate-500">
+                    Assembling 50 personnel into 10×5 grid...
+                </div>
+
+                <!-- Playback Speed Toggle -->
+                <div class="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-xs font-semibold">
+                    <button data-speed="1" class="speed-btn px-2 py-1 rounded-lg bg-white text-slate-900 shadow-sm transition-all">1x</button>
+                    <button data-speed="1.5" class="speed-btn px-2 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-all">1.5x</button>
+                    <button data-speed="2" class="speed-btn px-2 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-all">2x</button>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * 3D Chibi Formation Assembly
+         * Features 50 stylized matte clay/vinyl humanoid figures (42 Green, 8 Red)
+         * walking from outer perimeter positions into a crisp 10x5 center grid.
+         * Green figures walk smoothly and strike the iconic hands-on-hips pose.
+         * Red figures stumble and fall 2-4 times with dust puffs before recovering and joining the grid.
+         */
+
+        // ==========================================
+        // 1. CONFIGURATION & CHOREOGRAPHY CONSTANTS
+        // ==========================================
+        const STEADY_SWATCHES = [
+            { name: 'Emerald', hex: '#34b368' },
+            { name: 'Forest', hex: '#1e7e48' },
+            { name: 'Mint', hex: '#4fd1a5' },
+            { name: 'Sage', hex: '#7fa88b' },
+            { name: 'Teal', hex: '#1496a8' },
+            { name: 'Cobalt', hex: '#2d6cdf' },
+            { name: 'Slate', hex: '#52637a' },
+            { name: 'Gold', hex: '#e2a93b' }
+        ];
+
+        const STUMBLER_SWATCHES = [
+            { name: 'Coral Red', hex: '#e64848' },
+            { name: 'Crimson', hex: '#b91c1c' },
+            { name: 'Terracotta', hex: '#d96b43' },
+            { name: 'Amber', hex: '#ea8c2a' },
+            { name: 'Magenta', hex: '#d63384' },
+            { name: 'Violet', hex: '#7c4dff' },
+            { name: 'Charcoal', hex: '#334155' },
+            { name: 'Ivory Clay', hex: '#cbd5e1' }
+        ];
+
+        const CONFIG = {
+            totalCharacters: 50,
+            stumblerRatio: 0.16, // 16% -> 8 out of 50
+            greenCount: 42,
+            redCount: 8,
+            cols: 10,
+            rows: 5,
+            spacingX: 1.75,
+            spacingZ: 1.85,
+            totalDuration: 42.0, // 42 seconds full choreography
+            steadyHex: '#34b368',
+            stumblerHex: '#e64848',
+            spawnSeed: 101
+        };
+
+        /**
+         * Computes a balanced centered rectangular grid (cols x rows) for any total personnel count.
+         * Ensures 50 yields 10x5, 24 yields 6x4, 30 yields 6x5, etc.
+         */
+        function computeFormationGrid(count) {
+            if (count === 50) return { cols: 10, rows: 5 };
+            if (count <= 3) return { cols: count, rows: 1 };
+            let cols = Math.ceil(Math.sqrt(count * 1.85));
+            let rows = Math.ceil(count / cols);
+            // Balance aspect ratio if last row is too sparse
+            while ((cols - 1) * rows >= count && cols > rows) {
+                cols--;
+            }
+            return { cols, rows };
+        }
+
+        // Playback & Camera State
+        let state = {
+            elapsed: 0,
+            isPlaying: true,
+            speed: 1.0,
+            cameraMode: 'overview', // 'overview' | 'front' | 'followRed'
+            followedRedIndex: 0
+        };
+
+        // Three.js Globals
+        let scene, camera, renderer, controls;
+        let steadyMaterial, stumblerMaterial;
+        let characters = [];
+        let gridMarkers = [];
+        let dustParticles = [];
+        let lastFrameTime = 0;
+
+        // ==========================================
+        // 2. PROCEDURAL CHIBI CHARACTER BUILDER
+        // ==========================================
+        // Shared geometries for high performance across 50 articulated figures
+        const sharedGeos = {};
+
+        function initSharedGeometries() {
+            // Oversized smooth featureless head (slightly wider/oval sphere matching reference)
+            sharedGeos.head = new THREE.SphereGeometry(0.56, 32, 28);
+            sharedGeos.head.scale(1.04, 0.96, 0.98);
+
+            // Short smooth neck
+            sharedGeos.neck = new THREE.CylinderGeometry(0.14, 0.18, 0.22, 18);
+
+            // Compact rounded torso (capsule-like tapered body)
+            sharedGeos.torso = new THREE.CylinderGeometry(0.28, 0.34, 0.68, 24);
+            sharedGeos.chestCap = new THREE.SphereGeometry(0.28, 24, 16);
+            sharedGeos.pelvisCap = new THREE.SphereGeometry(0.34, 24, 16);
+
+            // Upper & Lower Arms (rounded capsules/cylinders with joint spheres)
+            sharedGeos.shoulderJoint = new THREE.SphereGeometry(0.115, 16, 14);
+            sharedGeos.upperArm = new THREE.CylinderGeometry(0.105, 0.095, 0.34, 16);
+            sharedGeos.elbowJoint = new THREE.SphereGeometry(0.095, 16, 14);
+            sharedGeos.foreArm = new THREE.CylinderGeometry(0.092, 0.082, 0.32, 16);
+
+            // Cute rounded mitten hand with subtle thumb/finger contour
+            sharedGeos.handPalm = new THREE.SphereGeometry(0.105, 16, 14);
+            sharedGeos.handPalm.scale(0.85, 1.15, 1.05);
+            sharedGeos.thumb = new THREE.SphereGeometry(0.048, 12, 10);
+
+            // Sturdy tapered legs
+            sharedGeos.hipJoint = new THREE.SphereGeometry(0.145, 16, 14);
+            sharedGeos.thigh = new THREE.CylinderGeometry(0.145, 0.125, 0.36, 18);
+            sharedGeos.kneeJoint = new THREE.SphereGeometry(0.122, 16, 14);
+            sharedGeos.shin = new THREE.CylinderGeometry(0.122, 0.11, 0.34, 18);
+
+            // Oversized cute rounded shoes/feet matching reference image
+            sharedGeos.footMain = new THREE.SphereGeometry(0.18, 20, 16);
+            sharedGeos.footMain.scale(0.95, 0.65, 1.48);
+            sharedGeos.footHeel = new THREE.SphereGeometry(0.135, 16, 14);
+            sharedGeos.footHeel.scale(0.95, 0.72, 1.0);
+        }
+
+        /**
+         * Builds a single articulated chibi mannequin character with hierarchical joints
+         * so we can animate walking, falling, pushing up, and the hands-on-hips pose.
+         */
+        function createChibiCharacter(material) {
+            const root = new THREE.Group();
+
+            // Pivot at feet level for tilting forward/backward during falls
+            const fallPivot = new THREE.Group();
+            root.add(fallPivot);
+
+            // Pelvis / Hips root (y = 0.82 above ground)
+            const pelvis = new THREE.Group();
+            pelvis.position.y = 0.82;
+            fallPivot.add(pelvis);
+
+            // Pelvis rounded base
+            const pelvisMesh = new THREE.Mesh(sharedGeos.pelvisCap, material);
+            pelvisMesh.scale.set(1.0, 0.78, 0.92);
+            pelvisMesh.castShadow = true;
+            pelvisMesh.receiveShadow = true;
+            pelvis.add(pelvisMesh);
+
+            // Torso group
+            const torsoGroup = new THREE.Group();
+            torsoGroup.position.y = 0.30;
+            pelvis.add(torsoGroup);
+
+            const torsoMesh = new THREE.Mesh(sharedGeos.torso, material);
+            torsoMesh.scale.set(1.0, 1.0, 0.90);
+            torsoMesh.castShadow = true;
+            torsoMesh.receiveShadow = true;
+            torsoGroup.add(torsoMesh);
+
+            const chestMesh = new THREE.Mesh(sharedGeos.chestCap, material);
+            chestMesh.position.y = 0.32;
+            chestMesh.scale.set(1.0, 0.75, 0.90);
+            chestMesh.castShadow = true;
+            chestMesh.receiveShadow = true;
+            torsoGroup.add(chestMesh);
+
+            // Neck & Oversized Head
+            const headGroup = new THREE.Group();
+            headGroup.position.y = 0.48;
+            torsoGroup.add(headGroup);
+
+            const neckMesh = new THREE.Mesh(sharedGeos.neck, material);
+            neckMesh.position.y = 0.06;
+            neckMesh.castShadow = true;
+            headGroup.add(neckMesh);
+
+            const headMesh = new THREE.Mesh(sharedGeos.head, material);
+            headMesh.position.y = 0.64;
+            headMesh.castShadow = true;
+            headMesh.receiveShadow = true;
+            headGroup.add(headMesh);
+
+            // Helper to build articulated Left & Right Arms
+            function createArm(side) {
+                // side: -1 for Left (-X), +1 for Right (+X)
+                const shoulder = new THREE.Group();
+                shoulder.position.set(side * 0.31, 0.25, 0);
+                torsoGroup.add(shoulder);
+
+                const shoulderSphere = new THREE.Mesh(sharedGeos.shoulderJoint, material);
+                shoulderSphere.castShadow = true;
+                shoulder.add(shoulderSphere);
+
+                const upperArmMesh = new THREE.Mesh(sharedGeos.upperArm, material);
+                upperArmMesh.position.y = -0.17;
+                upperArmMesh.castShadow = true;
+                shoulder.add(upperArmMesh);
+
+                const elbow = new THREE.Group();
+                elbow.position.y = -0.34;
+                shoulder.add(elbow);
+
+                const elbowSphere = new THREE.Mesh(sharedGeos.elbowJoint, material);
+                elbowSphere.castShadow = true;
+                elbow.add(elbowSphere);
+
+                const foreArmMesh = new THREE.Mesh(sharedGeos.foreArm, material);
+                foreArmMesh.position.y = -0.16;
+                foreArmMesh.castShadow = true;
+                elbow.add(foreArmMesh);
+
+                const hand = new THREE.Group();
+                hand.position.y = -0.33;
+                elbow.add(hand);
+
+                const palmMesh = new THREE.Mesh(sharedGeos.handPalm, material);
+                palmMesh.castShadow = true;
+                hand.add(palmMesh);
+
+                const thumbMesh = new THREE.Mesh(sharedGeos.thumb, material);
+                thumbMesh.position.set(-side * 0.06, 0.02, 0.06);
+                hand.add(thumbMesh);
+
+                return { shoulder, elbow, hand };
+            }
+
+            const leftArm = createArm(-1);
+            const rightArm = createArm(1);
+
+            // Helper to build articulated Left & Right Legs
+            function createLeg(side) {
+                const hip = new THREE.Group();
+                hip.position.set(side * 0.17, -0.06, 0);
+                pelvis.add(hip);
+
+                const hipSphere = new THREE.Mesh(sharedGeos.hipJoint, material);
+                hipSphere.castShadow = true;
+                hip.add(hipSphere);
+
+                const thighMesh = new THREE.Mesh(sharedGeos.thigh, material);
+                thighMesh.position.y = -0.18;
+                thighMesh.castShadow = true;
+                hip.add(thighMesh);
+
+                const knee = new THREE.Group();
+                knee.position.y = -0.36;
+                hip.add(knee);
+
+                const kneeSphere = new THREE.Mesh(sharedGeos.kneeJoint, material);
+                kneeSphere.castShadow = true;
+                knee.add(kneeSphere);
+
+                const shinMesh = new THREE.Mesh(sharedGeos.shin, material);
+                shinMesh.position.y = -0.17;
+                shinMesh.castShadow = true;
+                knee.add(shinMesh);
+
+                const foot = new THREE.Group();
+                foot.position.set(0, -0.34, 0.04);
+                knee.add(foot);
+
+                const footMainMesh = new THREE.Mesh(sharedGeos.footMain, material);
+                footMainMesh.position.set(0, 0.03, 0.06);
+                footMainMesh.castShadow = true;
+                footMainMesh.receiveShadow = true;
+                foot.add(footMainMesh);
+
+                const footHeelMesh = new THREE.Mesh(sharedGeos.footHeel, material);
+                footHeelMesh.position.set(0, 0.035, -0.08);
+                footHeelMesh.castShadow = true;
+                foot.add(footHeelMesh);
+
+                return { hip, knee, foot };
+            }
+
+            const leftLeg = createLeg(-1);
+            const rightLeg = createLeg(1);
+
+            return {
+                root,
+                fallPivot,
+                pelvis,
+                torsoGroup,
+                headGroup,
+                leftArm,
+                rightArm,
+                leftLeg,
+                rightLeg
+            };
+        }
+
+        // ==========================================
+        // 3. STUDIO SCENE, LIGHTING & FLOOR GRID
+        // ==========================================
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf2f4f7);
+            scene.fog = new THREE.FogExp2(0xf2f4f7, 0.011);
+
+            camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 180);
+            camera.position.set(0, 14.5, 25.5);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.06;
+            container.appendChild(renderer.domElement);
+
+            // OrbitControls for smooth user interaction
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.maxPolarAngle = Math.PI / 2 - 0.03; // Prevent clipping below floor
+            controls.minDistance = 5;
+            controls.maxDistance = 60;
+            controls.target.set(0, 1.2, 0);
+
+            // Three-Point Studio Lighting + Hemisphere Fill
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0xdbeafe, 0.72);
+            hemiLight.position.set(0, 30, 0);
+            scene.add(hemiLight);
+
+            // Key Light (Soft warm-white studio spotlight)
+            const keyLight = new THREE.DirectionalLight(0xfffcf8, 0.92);
+            keyLight.position.set(14, 26, 18);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 2048;
+            keyLight.shadow.mapSize.height = 2048;
+            keyLight.shadow.camera.near = 2;
+            keyLight.shadow.camera.far = 75;
+            const shadowBounds = 24;
+            keyLight.shadow.camera.left = -shadowBounds;
+            keyLight.shadow.camera.right = shadowBounds;
+            keyLight.shadow.camera.top = shadowBounds;
+            keyLight.shadow.camera.bottom = -shadowBounds;
+            keyLight.shadow.bias = -0.0005;
+            keyLight.shadow.normalBias = 0.02;
+            scene.add(keyLight);
+
+            // Cool Rim / Back Light to accentuate smooth clay silhouettes
+            const rimLight = new THREE.DirectionalLight(0xe0f2fe, 0.45);
+            rimLight.position.set(-16, 16, -18);
+            scene.add(rimLight);
+
+            // Soft Front Fill Light
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.25);
+            fillLight.position.set(-12, 8, 16);
+            scene.add(fillLight);
+
+            // Seamless Minimalist Studio Floor
+            const floorGeo = new THREE.PlaneGeometry(220, 220);
+            const floorMat = new THREE.MeshStandardMaterial({
+                color: 0xf4f6f9,
+                roughness: 0.85,
+                metalness: 0.02
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Subtle outer studio boundary ring
+            const outerRingGeo = new THREE.RingGeometry(24.5, 24.68, 96);
+            const outerRingMat = new THREE.MeshBasicMaterial({
+                color: 0xdbe2ea,
+                side: THREE.DoubleSide
+            });
+            const outerRing = new THREE.Mesh(outerRingGeo, outerRingMat);
+            outerRing.rotation.x = -Math.PI / 2;
+            outerRing.position.y = 0.004;
+            scene.add(outerRing);
+
+            // Initialize shared PBR clay/vinyl materials for both groups
+            steadyMaterial = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(CONFIG.steadyHex),
+                roughness: 0.72,
+                metalness: 0.04
+            });
+            stumblerMaterial = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(CONFIG.stumblerHex),
+                roughness: 0.72,
+                metalness: 0.04
+            });
+        }
+
+        /**
+         * Creates subtle circular target pads on the floor for each formation spot
+         * so viewers can watch the dynamic grid fill up.
+         */
+        function rebuildFormationMarkers(slotCoords) {
+            // Clear any existing markers
+            gridMarkers.forEach(m => {
+                scene.remove(m.group);
+                m.ringMat.dispose();
+                m.dotMat.dispose();
+            });
+            gridMarkers = [];
+
+            const ringGeo = new THREE.RingGeometry(0.36, 0.44, 32);
+            const dotGeo = new THREE.CircleGeometry(0.12, 20);
+
+            slotCoords.forEach(coord => {
+                const markerGroup = new THREE.Group();
+                markerGroup.position.set(coord.x, 0.005, coord.z);
+
+                const ringMat = new THREE.MeshBasicMaterial({
+                    color: 0xcbd5e1,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.75
+                });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.rotation.x = -Math.PI / 2;
+                markerGroup.add(ring);
+
+                const dotMat = new THREE.MeshBasicMaterial({
+                    color: 0xcbd5e1,
+                    transparent: true,
+                    opacity: 0.45
+                });
+                const dot = new THREE.Mesh(dotGeo, dotMat);
+                dot.rotation.x = -Math.PI / 2;
+                dot.position.y = 0.001;
+                markerGroup.add(dot);
+
+                scene.add(markerGroup);
+                gridMarkers.push({ group: markerGroup, ringMat, dotMat, occupied: false });
+            });
+        }
+
+        /**
+         * Computes centered world coordinates for all `count` formation slots,
+         * centering any partial back row cleanly.
+         */
+        function computeCenteredSlotPositions(count, cols, rows) {
+            const coords = [];
+            let placed = 0;
+            for (let r = 0; r < rows; r++) {
+                const remaining = count - placed;
+                const itemsInThisRow = Math.min(cols, remaining);
+                for (let c = 0; c < itemsInThisRow; c++) {
+                    const x = (c - (itemsInThisRow - 1) / 2) * CONFIG.spacingX;
+                    const z = (r - (rows - 1) / 2) * CONFIG.spacingZ;
+                    coords.push(new THREE.Vector3(x, 0, z));
+                    placed++;
+                }
+            }
+            return coords;
+        }
+
+        // ==========================================
+        // 4. DETERMINISTIC CHOREOGRAPHY & TIMELINES
+        // ==========================================
+        // Seeded pseudo-random helper so timeline scrubbing is 100% deterministic & repeatable
+        function seededRandom(seed) {
+            const x = Math.sin(seed * 91.3458) * 47453.5453;
+            return x - Math.floor(x);
+        }
+
+        /**
+         * Generates all personnel based on CONFIG.totalCharacters and CONFIG.stumblerRatio,
+         * assigns centered grid slots, randomizes starting positions across the entire studio floor
+         * with collision separation, and builds deterministic fall schedules for the stumbling group.
+         */
+        function buildSimulation() {
+            // Remove previous character meshes if regenerating
+            characters.forEach(c => scene.remove(c.rig.root));
+            characters = [];
+
+            // Remove active dust particles
+            dustParticles.forEach(p => {
+                scene.remove(p.mesh);
+                p.mat.dispose();
+            });
+            dustParticles = [];
+
+            // Compute grid layout and counts
+            const count = CONFIG.totalCharacters;
+            const grid = computeFormationGrid(count);
+            CONFIG.cols = grid.cols;
+            CONFIG.rows = grid.rows;
+
+            const redCount = count <= 1 ? 0 : Math.min(count - 1, Math.round(count * CONFIG.stumblerRatio));
+            const greenCount = count - redCount;
+            CONFIG.redCount = redCount;
+            CONFIG.greenCount = greenCount;
+
+            // Update grid shape label in panel
+            const gridLabel = document.getElementById('grid-shape-label');
+            if (gridLabel) {
+                gridLabel.textContent = `Formation Grid: ${CONFIG.cols} × ${CONFIG.rows} (${count} total)`;
+            }
+
+            // Compute centered target coordinates & rebuild floor markers
+            const slotCoords = computeCenteredSlotPositions(count, CONFIG.cols, CONFIG.rows);
+            rebuildFormationMarkers(slotCoords);
+
+            // Evenly distribute stumbling personnel across the formation slots
+            const redSlotIndices = new Set();
+            if (redCount > 0) {
+                for (let k = 0; k < redCount; k++) {
+                    const slotIdx = Math.floor(((k + 0.5) * count) / redCount);
+                    redSlotIndices.add(slotIdx);
+                }
+            }
+
+            // Generate non-overlapping random starting positions across the studio floor
+            const spawnRadiusLimit = Math.max(21.0, Math.sqrt(count) * 3.1);
+            const minSpawnDist = 1.45;
+            const assignedSpawns = [];
+
+            for (let idx = 0; idx < count; idx++) {
+                let candidate = new THREE.Vector3();
+                let attempts = 0;
+                while (attempts < 120) {
+                    const randSeed = CONFIG.spawnSeed * 997 + idx * 53 + attempts * 13;
+                    // Uniform random scatter across a wide circular studio floor (radius 2.0 to spawnRadiusLimit)
+                    const angle = seededRandom(randSeed + 1) * Math.PI * 2;
+                    const rNorm = Math.sqrt(seededRandom(randSeed + 2));
+                    const radius = 2.2 + rNorm * (spawnRadiusLimit - 2.2);
+                    candidate.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+
+                    let tooClose = false;
+                    for (let j = 0; j < assignedSpawns.length; j++) {
+                        if (candidate.distanceToSquared(assignedSpawns[j]) < minSpawnDist * minSpawnDist) {
+                            tooClose = true;
+                            break;
+                        }
+                    }
+                    if (!tooClose) break;
+                    attempts++;
+                }
+                assignedSpawns.push(candidate);
+            }
+
+            let redCounter = 0;
+            let greenCounter = 0;
+
+            slotCoords.forEach((targetPos, idx) => {
+                const isRed = redSlotIndices.has(idx);
+                const charSeed = CONFIG.spawnSeed * 31 + idx * 17 + 5;
+                const startPos = assignedSpawns[idx];
+                const initialYaw = (seededRandom(charSeed + 9) - 0.5) * Math.PI * 2;
+
+                // Create 3D articulated mesh using shared group material
+                const meshRig = createChibiCharacter(isRed ? stumblerMaterial : steadyMaterial);
+                meshRig.root.position.copy(startPos);
+                meshRig.root.rotation.y = initialYaw;
+                scene.add(meshRig.root);
+
+                // Build movement & fall schedule (scaled cleanly to 38-42s full duration)
+                let startTime, walkDuration, falls = [];
+                const distance = startPos.distanceTo(targetPos);
+
+                if (!isRed) {
+                    // Steady characters start staggered between 0.0s and 4.5s, arriving smoothly between 12s and 25s
+                    startTime = seededRandom(charSeed + 3) * 4.5;
+                    const baseSpeed = 1.15 + seededRandom(charSeed + 4) * 0.45;
+                    // Ensure even very close random spawns take at least 7.5s with a relaxed pace so movement feels organic
+                    walkDuration = Math.max(7.5, Math.min(21.0, distance / baseSpeed));
+                    greenCounter++;
+                } else {
+                    // Stumbling characters take 32s - 40.5s total due to multiple falls
+                    startTime = 0.4 + (redCounter / Math.max(1, redCount)) * 2.4;
+                    const numFalls = 2 + (redCounter % 3); // 2, 3, or 4 falls per stumbler
+                    const totalArrivalTarget = 32.5 + seededRandom(charSeed + 5) * 7.8; // Arrive near end (32.5s - 40.3s)
+
+                    const activeSpan = totalArrivalTarget - startTime - 2.8;
+                    const segment = activeSpan / (numFalls + 1);
+
+                    for (let f = 0; f < numFalls; f++) {
+                        const fallStart = startTime + segment * (f + 0.75) + (seededRandom(charSeed + f * 11) - 0.5) * 1.1;
+                        const fallDuration = 2.45; // 0.45s fall + 1.1s dazed on ground + 0.9s push up
+                        const fallDir = seededRandom(charSeed + f * 13) > 0.35 ? 1 : -1;
+                        falls.push({
+                            start: fallStart,
+                            duration: fallDuration,
+                            direction: fallDir,
+                            dustSpawned: false
+                        });
+                    }
+
+                    const totalFallPauseTime = falls.reduce((acc, f) => acc + f.duration, 0);
+                    walkDuration = Math.max(6.0, (totalArrivalTarget - startTime) - totalFallPauseTime);
+                    redCounter++;
+                }
+
+                // Slight curved path lateral arc so characters weave naturally past one another
+                const curveArc = (seededRandom(charSeed + 15) - 0.5) * Math.min(4.2, distance * 0.38);
+
+                characters.push({
+                    id: idx,
+                    isRed,
+                    redOrder: isRed ? redCounter - 1 : -1,
+                    slotIndex: idx,
+                    rig: meshRig,
+                    startPos,
+                    targetPos,
+                    initialYaw,
+                    curveArc,
+                    startTime,
+                    walkDuration,
+                    falls,
+                    walkPhaseOffset: seededRandom(charSeed + 7) * Math.PI * 2,
+                    wobbleFreq: 2.8 + seededRandom(charSeed + 8) * 1.5,
+                    arrived: false,
+                    currentPos: startPos.clone(),
+                    currentYaw: initialYaw
+                });
+            });
+
+            // Reset followed stumbler reference if in follow mode
+            const redChars = characters.filter(c => c.isRed);
+            if (redChars.length > 0) {
+                state.followedRedIndex = state.followedRedIndex % redChars.length;
+                state.followedChar = redChars[state.followedRedIndex];
+            } else {
+                state.followedChar = null;
+            }
+        }
+
+        // ==========================================
+        // 5. DUST PUFF PARTICLE SYSTEM (ON FALLS)
+        // ==========================================
+        const dustGeo = new THREE.SphereGeometry(0.16, 10, 8);
+
+        function spawnDustPuff(worldPos) {
+            for (let i = 0; i < 8; i++) {
+                const mat = new THREE.MeshBasicMaterial({
+                    color: 0xe2e8f0,
+                    transparent: true,
+                    opacity: 0.75
+                });
+                const mesh = new THREE.Mesh(dustGeo, mat);
+                const angle = (i / 8) * Math.PI * 2 + Math.random() * 0.4;
+                const speed = 0.8 + Math.random() * 1.2;
+                mesh.position.set(
+                    worldPos.x + Math.cos(angle) * 0.2,
+                    0.12 + Math.random() * 0.15,
+                    worldPos.z + Math.sin(angle) * 0.2
+                );
+                scene.add(mesh);
+                dustParticles.push({
+                    mesh,
+                    mat,
+                    vx: Math.cos(angle) * speed,
+                    vy: 0.6 + Math.random() * 0.8,
+                    vz: Math.sin(angle) * speed,
+                    age: 0,
+                    maxAge: 0.65 + Math.random() * 0.25
+                });
+            }
+        }
+
+        function updateDustParticles(dt) {
+            for (let i = dustParticles.length - 1; i >= 0; i--) {
+                const p = dustParticles[i];
+                p.age += dt;
+                if (p.age >= p.maxAge) {
+                    scene.remove(p.mesh);
+                    p.mat.dispose();
+                    dustParticles.splice(i, 1);
+                    continue;
+                }
+                const progress = p.age / p.maxAge;
+                p.mesh.position.x += p.vx * dt;
+                p.mesh.position.y += p.vy * dt;
+                p.mesh.position.z += p.vz * dt;
+                p.vy *= 0.92;
+                const scale = 1.0 + progress * 1.4;
+                p.mesh.scale.set(scale, scale, scale);
+                p.mat.opacity = 0.75 * (1 - progress);
+            }
+        }
+
+        // ==========================================
+        // 6. ARTICULATED POSE & MOTION EVALUATOR
+        // ==========================================
+        function smoothstep(edge0, edge1, x) {
+            const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+            return t * t * (3 - 2 * t);
+        }
+
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        /**
+         * Evaluates exact position, orientation, and limb joint angles for a character at time `t`.
+         * Being purely deterministic allows seamless timeline scrubbing forward and backward!
+         */
+        function evaluateCharacterAtTime(char, t, isPlayingForward) {
+            const rig = char.rig;
+
+            // Reset base pivots cleanly each frame
+            rig.fallPivot.rotation.set(0, 0, 0);
+            rig.fallPivot.position.set(0, 0, 0);
+            rig.pelvis.position.set(0, 0.82, 0);
+            rig.pelvis.rotation.set(0, 0, 0);
+            rig.torsoGroup.rotation.set(0, 0, 0);
+            rig.headGroup.rotation.set(0, 0, 0);
+
+            // 1. Check if character hasn't started walking yet
+            if (t <= char.startTime) {
+                char.arrived = false;
+                char.currentPos.copy(char.startPos);
+                rig.root.position.copy(char.startPos);
+
+                char.currentYaw = char.initialYaw;
+                rig.root.rotation.y = char.initialYaw;
+
+                // Subtle idle breathing
+                const breath = Math.sin(t * 2.5 + char.walkPhaseOffset) * 0.02;
+                applyIdleArmsDownPose(rig, breath);
+                applyNeutralLegsPose(rig);
+                return;
+            }
+
+            // 2. Compute effective walking time (subtracting any completed or active fall durations)
+            let effectiveWalkTime = 0;
+            let activeFall = null;
+            let fallLocalTime = 0;
+            let cursor = char.startTime;
+
+            for (let i = 0; i < char.falls.length; i++) {
+                const f = char.falls[i];
+                if (t < f.start) {
+                    effectiveWalkTime += Math.max(0, t - cursor);
+                    cursor = t;
+                    break;
+                } else if (t >= f.start && t <= f.start + f.duration) {
+                    effectiveWalkTime += Math.max(0, f.start - cursor);
+                    activeFall = f;
+                    fallLocalTime = t - f.start;
+                    cursor = t;
+                    break;
+                } else {
+                    effectiveWalkTime += Math.max(0, f.start - cursor);
+                    cursor = f.start + f.duration;
+                }
+            }
+            if (!activeFall && t > cursor) {
+                effectiveWalkTime += (t - cursor);
+            }
+
+            // Progress along path [0..1]
+            const rawProgress = Math.min(1.0, effectiveWalkTime / char.walkDuration);
+            // Smooth ease-in-out at very start and arrival
+            const pathProgress = rawProgress < 1.0
+                ? smoothstep(0, 0.04, rawProgress) * 0.04 + Math.max(0, rawProgress - 0.04)
+                : 1.0;
+
+            // Compute current world XZ position along a gentle curved arc
+            const pos = new THREE.Vector3().lerpVectors(char.startPos, char.targetPos, pathProgress);
+
+            const toTarget = new THREE.Vector3().subVectors(char.targetPos, char.startPos);
+            const pathLen = Math.max(0.001, toTarget.length());
+            const dir = toTarget.clone().divideScalar(pathLen);
+            const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+
+            // Smooth parabolic curve offset so crossing paths look natural
+            const arcOffset = Math.sin(pathProgress * Math.PI) * char.curveArc;
+            pos.addScaledVector(perp, arcOffset);
+
+            // Add erratic side-to-side wobble for Red characters while walking
+            if (char.isRed && rawProgress < 1.0) {
+                const wobbleEnv = Math.sin(rawProgress * Math.PI); // Taper wobble at start and end
+                const lateralWobble = Math.sin(effectiveWalkTime * char.wobbleFreq + char.walkPhaseOffset) * 0.65 * wobbleEnv;
+                pos.addScaledVector(perp, lateralWobble);
+            }
+
+            char.currentPos.copy(pos);
+            rig.root.position.copy(pos);
+
+            // Compute instantaneous tangent heading along the curved path
+            const dArc = Math.cos(pathProgress * Math.PI) * Math.PI * char.curveArc;
+            const tangent = dir.clone().multiplyScalar(pathLen).addScaledVector(perp, dArc).normalize();
+            const travelYaw = Math.atan2(tangent.x, tangent.z);
+
+            // 3. Handle Active Fall & Recovery Animation (Stumbling Group)
+            if (activeFall) {
+                char.arrived = false;
+                const d = activeFall.direction; // +1 = faceplant forward, -1 = backward tumble
+                const fT = fallLocalTime / activeFall.duration; // 0..1
+
+                // Face direction of travel during fall
+                rig.root.rotation.y = travelYaw;
+
+                // Spawn dust puff right as body hits the ground (around fT = 0.22)
+                if (isPlayingForward && fT >= 0.20 && fT <= 0.28 && !activeFall.dustSpawned) {
+                    activeFall.dustSpawned = true;
+                    spawnDustPuff(pos);
+                } else if (fT < 0.15) {
+                    activeFall.dustSpawned = false;
+                }
+
+                let fallPitch = 0;
+                let groundSink = 0;
+                let pushUpExtension = 0;
+
+                if (fT < 0.22) {
+                    // Phase A: Trip & Fall rapidly onto ground (with slight bounce)
+                    const p = fT / 0.22;
+                    const easeIn = p * p;
+                    fallPitch = d * easeIn * (Math.PI / 2 - 0.08);
+                    groundSink = easeIn * 0.26;
+                } else if (fT < 0.30) {
+                    // Phase B: Impact bounce on ground
+                    const b = (fT - 0.22) / 0.08;
+                    const bounce = Math.sin(b * Math.PI) * 0.12;
+                    fallPitch = d * ((Math.PI / 2 - 0.08) - bounce);
+                    groundSink = 0.26 - bounce * 0.15;
+                } else if (fT < 0.62) {
+                    // Phase C: Lying flat on ground, slightly dazed / wiggling legs
+                    fallPitch = d * (Math.PI / 2 - 0.08);
+                    groundSink = 0.26;
+                    const wiggle = Math.sin((fT - 0.30) * 28) * 0.08;
+                    rig.leftLeg.knee.rotation.x = Math.max(0, wiggle * 3);
+                    rig.rightLeg.knee.rotation.x = Math.max(0, -wiggle * 3);
+                } else {
+                    // Phase D: Push back up to standing
+                    const r = smoothstep(0.62, 1.0, fT);
+                    fallPitch = d * (1 - r) * (Math.PI / 2 - 0.08);
+                    groundSink = (1 - r) * 0.26;
+                    pushUpExtension = Math.sin(r * Math.PI);
+                }
+
+                rig.fallPivot.rotation.x = fallPitch;
+                rig.fallPivot.position.y = groundSink;
+
+                // Arms flail during fall, then push against floor during recovery
+                rig.leftArm.shoulder.rotation.set(-0.6 - pushUpExtension * 0.7, 0, -0.45);
+                rig.rightArm.shoulder.rotation.set(-0.6 - pushUpExtension * 0.7, 0, 0.45);
+                rig.leftArm.elbow.rotation.set(-0.4 + pushUpExtension * 0.3, 0, 0);
+                rig.rightArm.elbow.rotation.set(-0.4 + pushUpExtension * 0.3, 0, 0);
+
+                // Head looks up slightly while pushing back up
+                rig.headGroup.rotation.x = -d * pushUpExtension * 0.45;
+                return;
+            }
+
+            // 4. Walking State (In transit to grid spot)
+            if (rawProgress < 1.0) {
+                char.arrived = false;
+
+                // Smoothly turn from initial random orientation onto the curved travel heading
+                const turnBlend = smoothstep(0, 0.12, pathProgress);
+                let deltaAngle = travelYaw - char.initialYaw;
+                while (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+                while (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
+                let moveAngle = char.initialYaw + deltaAngle * turnBlend;
+
+                if (char.isRed) {
+                    const wobbleSlope = Math.cos(effectiveWalkTime * char.wobbleFreq + char.walkPhaseOffset) * 0.35;
+                    moveAngle += wobbleSlope;
+                }
+                char.currentYaw = moveAngle;
+                rig.root.rotation.y = moveAngle;
+
+                // Cute bouncy bipedal walk cycle
+                const strideSpeed = char.isRed ? 8.2 : 9.6;
+                const cycle = effectiveWalkTime * strideSpeed + char.walkPhaseOffset;
+                const legSwing = Math.sin(cycle) * (char.isRed ? 0.62 : 0.55);
+                const oppLegSwing = Math.sin(cycle + Math.PI) * (char.isRed ? 0.62 : 0.55);
+
+                // Vertical body bounce (double frequency of stride)
+                const bounce = Math.abs(Math.sin(cycle)) * 0.075;
+                rig.pelvis.position.y = 0.82 + bounce;
+
+                // Slight playful torso sway & forward lean
+                rig.torsoGroup.rotation.x = char.isRed ? 0.12 : 0.06;
+                rig.torsoGroup.rotation.z = Math.sin(cycle) * (char.isRed ? 0.11 : 0.05);
+                rig.headGroup.rotation.z = -Math.sin(cycle) * 0.04;
+
+                // Legs articulation
+                rig.leftLeg.hip.rotation.x = legSwing;
+                rig.rightLeg.hip.rotation.x = oppLegSwing;
+                rig.leftLeg.knee.rotation.x = Math.max(0, -legSwing * 0.85);
+                rig.rightLeg.knee.rotation.x = Math.max(0, -oppLegSwing * 0.85);
+
+                // Opposite arm swing
+                rig.leftArm.shoulder.rotation.set(oppLegSwing * 0.75, 0, -0.18);
+                rig.rightArm.shoulder.rotation.set(legSwing * 0.75, 0, 0.18);
+                rig.leftArm.elbow.rotation.set(-0.35 - Math.max(0, -oppLegSwing * 0.4), 0, 0);
+                rig.rightArm.elbow.rotation.set(-0.35 - Math.max(0, -legSwing * 0.4), 0, 0);
+                return;
+            }
+
+            // 5. Arrived at Grid Spot: Turn forward (+Z) & Strike Iconic 'Hands-On-Hips' Pose!
+            char.arrived = true;
+            const timeSinceArrival = effectiveWalkTime - char.walkDuration;
+            const settleBlend = smoothstep(0, 0.85, timeSinceArrival); // 0.85s smooth transition
+
+            // Shortest angular interpolation from arrival tangent heading to facing camera (yaw = 0)
+            let startYaw = travelYaw;
+            while (startYaw > Math.PI) startYaw -= Math.PI * 2;
+            while (startYaw < -Math.PI) startYaw += Math.PI * 2;
+            const currentYaw = lerp(startYaw, 0, settleBlend);
+            char.currentYaw = currentYaw;
+            rig.root.rotation.y = currentYaw;
+
+            // Gentle proud breathing idle once in formation
+            const idleBreath = Math.sin(t * 2.6 + char.walkPhaseOffset) * 0.018 * settleBlend;
+            rig.pelvis.position.y = 0.82 + idleBreath * 0.4;
+            rig.torsoGroup.rotation.x = -0.04 * settleBlend; // Slight confident chest-out tilt
+            rig.headGroup.rotation.x = 0.03 * settleBlend;
+
+            // Legs plant neatly shoulder-width apart
+            applyNeutralLegsPose(rig);
+
+            // Iconic Hands-On-Hips Pose (matching the attached reference image)
+            // Upper arms flare outward (~42 deg), elbows bend inward (~82 deg) so hands rest cleanly on waist!
+            const poseT = settleBlend;
+
+            // Left Arm (-X side)
+            rig.leftArm.shoulder.rotation.set(
+                lerp(0, 0.12, poseT),
+                lerp(0, -0.25, poseT),
+                lerp(-0.18, -0.74, poseT)
+            );
+            rig.leftArm.elbow.rotation.set(
+                lerp(-0.3, -0.18, poseT),
+                0,
+                lerp(0, 1.48, poseT)
+            );
+            rig.leftArm.hand.rotation.set(0, 0, lerp(0, 0.35, poseT));
+
+            // Right Arm (+X side)
+            rig.rightArm.shoulder.rotation.set(
+                lerp(0, 0.12, poseT),
+                lerp(0, 0.25, poseT),
+                lerp(0.18, 0.74, poseT)
+            );
+            rig.rightArm.elbow.rotation.set(
+                lerp(-0.3, -0.18, poseT),
+                0,
+                lerp(0, -1.48, poseT)
+            );
+            rig.rightArm.hand.rotation.set(0, 0, lerp(0, -0.35, poseT));
+        }
+
+        function applyIdleArmsDownPose(rig, breath) {
+            rig.leftArm.shoulder.rotation.set(0, 0, -0.18 - breath);
+            rig.rightArm.shoulder.rotation.set(0, 0, 0.18 + breath);
+            rig.leftArm.elbow.rotation.set(-0.2, 0, 0);
+            rig.rightArm.elbow.rotation.set(-0.2, 0, 0);
+            rig.leftArm.hand.rotation.set(0, 0, 0);
+            rig.rightArm.hand.rotation.set(0, 0, 0);
+        }
+
+        function applyNeutralLegsPose(rig) {
+            rig.leftLeg.hip.rotation.set(0, 0, -0.04);
+            rig.rightLeg.hip.rotation.set(0, 0, 0.04);
+            rig.leftLeg.knee.rotation.set(0, 0, 0);
+            rig.rightLeg.knee.rotation.set(0, 0, 0);
+        }
+
+        // ==========================================
+        // 7. CAMERA PRESETS & SMOOTH TRACKING
+        // ==========================================
+        const cameraPresets = {
+            overview: {
+                pos: new THREE.Vector3(0, 15.0, 26.0),
+                target: new THREE.Vector3(0, 1.2, 0)
+            },
+            front: {
+                pos: new THREE.Vector3(0, 4.8, 17.5),
+                target: new THREE.Vector3(0, 1.4, -0.5)
+            }
+        };
+
+        let cameraTransition = null;
+
+        function setCameraPreset(mode) {
+            state.cameraMode = mode;
+
+            // Update active button styling
+            document.querySelectorAll('.cam-btn').forEach(btn => {
+                btn.classList.remove('bg-slate-900', 'text-white', 'shadow-sm');
+                btn.classList.add('text-slate-600');
+            });
+
+            if (mode === 'overview') {
+                const btn = document.getElementById('cam-overview');
+                btn.classList.add('bg-slate-900', 'text-white', 'shadow-sm');
+                btn.classList.remove('text-slate-600');
+                cameraTransition = {
+                    destPos: cameraPresets.overview.pos.clone(),
+                    destTarget: cameraPresets.overview.target.clone(),
+                    alpha: 0
+                };
+            } else if (mode === 'front') {
+                const btn = document.getElementById('cam-front');
+                btn.classList.add('bg-slate-900', 'text-white', 'shadow-sm');
+                btn.classList.remove('text-slate-600');
+                cameraTransition = {
+                    destPos: cameraPresets.front.pos.clone(),
+                    destTarget: cameraPresets.front.target.clone(),
+                    alpha: 0
+                };
+            } else if (mode === 'followRed') {
+                const btn = document.getElementById('cam-follow-red');
+                btn.classList.add('bg-slate-900', 'text-white', 'shadow-sm');
+                btn.classList.remove('text-slate-600');
+                cameraTransition = null;
+
+                // Pick a Red character that hasn't arrived yet (or cycle through them)
+                const redChars = characters.filter(c => c.isRed);
+                const activeReds = redChars.filter(c => !c.arrived);
+                if (activeReds.length > 0) {
+                    state.followedRedIndex = (state.followedRedIndex + 1) % activeReds.length;
+                    state.followedChar = activeReds[state.followedRedIndex];
+                } else {
+                    state.followedRedIndex = (state.followedRedIndex + 1) % redChars.length;
+                    state.followedChar = redChars[state.followedRedIndex];
+                }
+            }
+        }
+
+        function updateCamera(dt) {
+            if (state.cameraMode === 'followRed' && state.followedChar) {
+                const c = state.followedChar;
+                const desiredTarget = new THREE.Vector3(c.currentPos.x, 1.35, c.currentPos.z);
+                const desiredCamPos = new THREE.Vector3(
+                    c.currentPos.x + 3.2,
+                    3.6,
+                    c.currentPos.z + 5.4
+                );
+                controls.target.lerp(desiredTarget, Math.min(1, dt * 5.5));
+                camera.position.lerp(desiredCamPos, Math.min(1, dt * 3.5));
+            } else if (cameraTransition) {
+                cameraTransition.alpha += dt * 2.5;
+                const t = Math.min(1, cameraTransition.alpha);
+                camera.position.lerp(cameraTransition.destPos, 0.1);
+                controls.target.lerp(cameraTransition.destTarget, 0.1);
+                if (camera.position.distanceTo(cameraTransition.destPos) < 0.08) {
+                    cameraTransition = null;
+                }
+            }
+            controls.update();
+        }
+
+        // ==========================================
+        // 8. HUD & UI CONTROLS WIRING
+        // ==========================================
+        function formatTime(sec) {
+            const clamped = Math.max(0, Math.floor(sec));
+            const mins = Math.floor(clamped / 60);
+            const secs = clamped % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updateHUD() {
+            const greenArrived = characters.filter(c => !c.isRed && c.arrived).length;
+            const redArrived = characters.filter(c => c.isRed && c.arrived).length;
+
+            document.getElementById('green-counter').textContent = `${greenArrived} / ${CONFIG.greenCount}`;
+            document.getElementById('red-counter').textContent = `${redArrived} / ${CONFIG.redCount}`;
+
+            document.getElementById('time-elapsed').textContent = formatTime(state.elapsed);
+            document.getElementById('timeline-scrubber').value = state.elapsed.toFixed(2);
+            const pct = (state.elapsed / CONFIG.totalDuration) * 100;
+            document.getElementById('timeline-fill').style.width = `${pct}%`;
+
+            // Update floor grid marker colors when occupied using active group shades
+            const steadyColorObj = new THREE.Color(CONFIG.steadyHex);
+            const stumblerColorObj = new THREE.Color(CONFIG.stumblerHex);
+
+            for (let i = 0; i < characters.length; i++) {
+                const c = characters[i];
+                const marker = gridMarkers[c.slotIndex];
+                if (!marker) continue;
+                if (c.arrived) {
+                    marker.occupied = true;
+                    const activeCol = c.isRed ? stumblerColorObj : steadyColorObj;
+                    marker.ringMat.color.copy(activeCol);
+                    marker.ringMat.opacity = 0.85;
+                    marker.dotMat.color.copy(activeCol);
+                } else if (!c.arrived && marker.occupied) {
+                    marker.occupied = false;
+                    marker.ringMat.color.setHex(0xcbd5e1);
+                    marker.ringMat.opacity = 0.75;
+                    marker.dotMat.color.setHex(0xcbd5e1);
+                }
+            }
+
+            // Contextual status message
+            const statusEl = document.getElementById('status-banner');
+            if (greenArrived + redArrived === CONFIG.totalCharacters) {
+                statusEl.textContent = `Formation complete! All ${CONFIG.totalCharacters} personnel in ${CONFIG.cols}×${CONFIG.rows} grid.`;
+                statusEl.classList.add('text-emerald-600');
+            } else if (greenArrived === CONFIG.greenCount && CONFIG.redCount > 0) {
+                statusEl.textContent = 'Steady squad assembled! Stumbling personnel recovering...';
+                statusEl.classList.remove('text-emerald-600');
+            } else {
+                statusEl.textContent = `Assembling ${CONFIG.totalCharacters} personnel into ${CONFIG.cols}×${CONFIG.rows} grid...`;
+                statusEl.classList.remove('text-emerald-600');
+            }
+        }
+
+        /**
+         * Updates the 3D materials and HUD swatches live whenever the user picks a new shade.
+         */
+        function applyShadeSelection(group, hex) {
+            if (group === 'steady') {
+                CONFIG.steadyHex = hex;
+                steadyMaterial.color.set(hex);
+                document.getElementById('picker-steady').value = hex;
+                document.getElementById('hex-steady').textContent = hex;
+                document.getElementById('steady-dot').style.backgroundColor = hex;
+            } else {
+                CONFIG.stumblerHex = hex;
+                stumblerMaterial.color.set(hex);
+                document.getElementById('picker-stumbler').value = hex;
+                document.getElementById('hex-stumbler').textContent = hex;
+                document.getElementById('stumbler-dot').style.backgroundColor = hex;
+                document.getElementById('cam-stumbler-dot').style.backgroundColor = hex;
+            }
+            updateHUD();
+        }
+
+        function renderShadeSwatches() {
+            const steadyContainer = document.getElementById('swatches-steady');
+            STEADY_SWATCHES.forEach(s => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.title = s.name;
+                btn.className = 'w-6 h-6 rounded-full border-2 border-white shadow-sm hover:scale-110 active:scale-95 transition-transform';
+                btn.style.backgroundColor = s.hex;
+                btn.addEventListener('click', () => applyShadeSelection('steady', s.hex));
+                steadyContainer.appendChild(btn);
+            });
+
+            const stumblerContainer = document.getElementById('swatches-stumbler');
+            STUMBLER_SWATCHES.forEach(s => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.title = s.name;
+                btn.className = 'w-6 h-6 rounded-full border-2 border-white shadow-sm hover:scale-110 active:scale-95 transition-transform';
+                btn.style.backgroundColor = s.hex;
+                btn.addEventListener('click', () => applyShadeSelection('stumbler', s.hex));
+                stumblerContainer.appendChild(btn);
+            });
+        }
+
+        function initUI() {
+            renderShadeSwatches();
+
+            const btnPlayPause = document.getElementById('btn-play-pause');
+            const iconPause = document.getElementById('icon-pause');
+            const iconPlay = document.getElementById('icon-play');
+            const labelPlayPause = document.getElementById('label-play-pause');
+
+            function syncPlayButtonUI() {
+                if (state.isPlaying) {
+                    iconPause.classList.remove('hidden');
+                    iconPlay.classList.add('hidden');
+                    labelPlayPause.textContent = 'Pause';
+                } else {
+                    iconPause.classList.add('hidden');
+                    iconPlay.classList.remove('hidden');
+                    labelPlayPause.textContent = 'Play';
+                }
+            }
+
+            btnPlayPause.addEventListener('click', () => {
+                if (state.elapsed >= CONFIG.totalDuration) {
+                    state.elapsed = 0;
+                }
+                state.isPlaying = !state.isPlaying;
+                syncPlayButtonUI();
+            });
+
+            document.getElementById('btn-restart').addEventListener('click', () => {
+                state.elapsed = 0;
+                state.isPlaying = true;
+                characters.forEach(c => c.falls.forEach(f => f.dustSpawned = false));
+                syncPlayButtonUI();
+            });
+
+            // Settings Panel Toggle
+            const settingsPanel = document.getElementById('studio-settings-panel');
+            document.getElementById('btn-toggle-settings').addEventListener('click', () => {
+                settingsPanel.classList.toggle('hidden');
+            });
+            document.getElementById('btn-close-settings').addEventListener('click', () => {
+                settingsPanel.classList.add('hidden');
+            });
+
+            // Live Shade Color Pickers
+            document.getElementById('picker-steady').addEventListener('input', (e) => {
+                applyShadeSelection('steady', e.target.value);
+            });
+            document.getElementById('picker-stumbler').addEventListener('input', (e) => {
+                applyShadeSelection('stumbler', e.target.value);
+            });
+
+            // Personnel Count & Stumbling Ratio Controls
+            const countSlider = document.getElementById('input-total-count');
+            const countNumber = document.getElementById('input-total-number');
+            const ratioSlider = document.getElementById('input-stumbler-ratio');
+            const ratioLabel = document.getElementById('label-stumbler-share');
+
+            function syncConfigPreviewLabels() {
+                const count = Math.max(6, Math.min(120, parseInt(countSlider.value, 10) || 50));
+                const pct = parseInt(ratioSlider.value, 10);
+                const estStumblers = count <= 1 ? 0 : Math.min(count - 1, Math.round(count * (pct / 100)));
+                const grid = computeFormationGrid(count);
+                ratioLabel.textContent = `${pct}% (${estStumblers})`;
+                document.getElementById('grid-shape-label').textContent = `Formation Grid: ${grid.cols} × ${grid.rows} (${count} total)`;
+            }
+
+            countSlider.addEventListener('input', () => {
+                countNumber.value = countSlider.value;
+                syncConfigPreviewLabels();
+            });
+            countNumber.addEventListener('input', () => {
+                const val = Math.max(6, Math.min(120, parseInt(countNumber.value, 10) || 6));
+                countSlider.value = val;
+                syncConfigPreviewLabels();
+            });
+            ratioSlider.addEventListener('input', syncConfigPreviewLabels);
+
+            function regenerateWithCurrentSettings(randomizeSeed) {
+                const newCount = Math.max(6, Math.min(120, parseInt(countSlider.value, 10) || 50));
+                countSlider.value = newCount;
+                countNumber.value = newCount;
+                CONFIG.totalCharacters = newCount;
+                CONFIG.stumblerRatio = parseInt(ratioSlider.value, 10) / 100;
+                if (randomizeSeed) {
+                    CONFIG.spawnSeed = Math.floor(Math.random() * 100000) + 1;
+                }
+                buildSimulation();
+                state.elapsed = 0;
+                state.isPlaying = true;
+                syncPlayButtonUI();
+                characters.forEach(c => evaluateCharacterAtTime(c, 0, false));
+                updateHUD();
+            }
+
+            document.getElementById('btn-apply-regenerate').addEventListener('click', () => {
+                regenerateWithCurrentSettings(true);
+            });
+
+            document.getElementById('btn-quick-shuffle').addEventListener('click', () => {
+                regenerateWithCurrentSettings(true);
+            });
+
+            // Timeline scrubber
+            const scrubber = document.getElementById('timeline-scrubber');
+            scrubber.max = CONFIG.totalDuration;
+            scrubber.addEventListener('input', (e) => {
+                state.elapsed = parseFloat(e.target.value);
+                characters.forEach(c => evaluateCharacterAtTime(c, state.elapsed, false));
+                updateHUD();
+            });
+
+            // Speed toggles
+            document.querySelectorAll('.speed-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    state.speed = parseFloat(btn.dataset.speed);
+                    document.querySelectorAll('.speed-btn').forEach(b => {
+                        b.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+                        b.classList.add('text-slate-600');
+                    });
+                    btn.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+                    btn.classList.remove('text-slate-600');
+                });
+            });
+
+            // Camera Presets
+            document.getElementById('cam-overview').addEventListener('click', () => setCameraPreset('overview'));
+            document.getElementById('cam-front').addEventListener('click', () => setCameraPreset('front'));
+            document.getElementById('cam-follow-red').addEventListener('click', () => setCameraPreset('followRed'));
+
+            // Cancel auto-transition if user manually grabs OrbitControls
+            controls.addEventListener('start', () => {
+                cameraTransition = null;
+                if (state.cameraMode === 'followRed') {
+                    // Allow free orbiting once user drags manually
+                    state.cameraMode = 'free';
+                    document.querySelectorAll('.cam-btn').forEach(btn => {
+                        btn.classList.remove('bg-slate-900', 'text-white', 'shadow-sm');
+                        btn.classList.add('text-slate-600');
+                    });
+                }
+            });
+
+            // Responsive Resize Handler
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // ==========================================
+        // 9. MAIN ANIMATION LOOP
+        // ==========================================
+        function animate(now) {
+            requestAnimationFrame(animate);
+
+            if (!lastFrameTime) lastFrameTime = now;
+            const rawDt = Math.min(0.1, (now - lastFrameTime) / 1000);
+            lastFrameTime = now;
+
+            if (state.isPlaying) {
+                state.elapsed += rawDt * state.speed;
+                if (state.elapsed >= CONFIG.totalDuration) {
+                    state.elapsed = CONFIG.totalDuration;
+                    state.isPlaying = false;
+                    document.getElementById('icon-pause').classList.add('hidden');
+                    document.getElementById('icon-play').classList.remove('hidden');
+                    document.getElementById('label-play-pause').textContent = 'Replay';
+                }
+            }
+
+            // Evaluate all 50 characters at current timestamp
+            for (let i = 0; i < characters.length; i++) {
+                evaluateCharacterAtTime(characters[i], state.elapsed, state.isPlaying);
+            }
+
+            updateDustParticles(rawDt * state.speed);
+            updateCamera(rawDt);
+            updateHUD();
+
+            renderer.render(scene, camera);
+        }
+
+        // Start application cleanly on window load
+        window.onload = function () {
+            initScene();
+            initSharedGeometries();
+            buildSimulation();
+            initUI();
+            requestAnimationFrame(animate);
+        };
+    </script>
+</body>
+</html>

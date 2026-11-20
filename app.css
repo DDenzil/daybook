@@ -290,3 +290,9 @@ h2.section .count { font-weight: 500; letter-spacing: 0; }
 @media (min-width: 900px) { .toast { bottom: 40px; } }
 
 svg.i { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Links in notes */
+.p-notes { margin-top: 10px; font-size: 14px; line-height: 1.5; color: var(--muted); white-space: pre-line; word-break: break-word; }
+.p-notes a { font-weight: 600; text-decoration: none; }
+.links { display: flex; flex-wrap: wrap; gap: 8px; }
+.links .btn { min-height: 40px; font-size: 14px; color: var(--accent); text-decoration: none; }

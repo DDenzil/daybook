@@ -3,7 +3,7 @@
    No build step, no dependencies. */
 'use strict';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PALETTE = ['#2563EB', '#0F766E', '#DB2777', '#EA580C', '#16A34A', '#7C3AED', '#CA8A04', '#0891B2', '#DC2626', '#64748B'];
 const DEFAULT_CATS = [
@@ -88,6 +88,23 @@ const b64e = (s) => { const b = new TextEncoder().encode(s); let bin = ''; for (
 const b64d = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, '')), (c) => c.charCodeAt(0)));
 const b64u = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const b64uBytes = (s) => { const p = s.replace(/-/g, '+').replace(/_/g, '/'); return Uint8Array.from(atob(p + '='.repeat((4 - p.length % 4) % 4)), (c) => c.charCodeAt(0)); };
+
+/* ---------- links in notes ---------- */
+const URL_RE = /\bhttps?:\/\/[^\s<>"']+/g;
+function linkLabel(u) {
+  try { const x = new URL(u); const last = decodeURIComponent(x.pathname.split('/').filter(Boolean).pop() || ''); return last || x.hostname; }
+  catch { return u; }
+}
+function linkify(text) {
+  text = String(text || ''); let out = '', last = 0;
+  text.replace(URL_RE, (m, idx) => {
+    const url = m.replace(/[.,;:!?)\]]+$/, '');
+    out += esc(text.slice(last, idx)) + `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(linkLabel(url))} ↗</a>` + esc(m.slice(url.length));
+    last = idx + m.length; return m;
+  });
+  return out + esc(text.slice(last));
+}
+const urlsIn = (text) => (String(text || '').match(URL_RE) || []).map((m) => m.replace(/[.,;:!?)\]]+$/, ''));
 
 /* ---------- CSV ---------- */
 function parseCSV(text) {
@@ -327,6 +344,7 @@ function taskMeta(t, { withDate = true } = {}) {
   m.push(metaCat(t));
   if (t.project) { const p = byId(t.project); if (p) m.push(metaTxt(p.title)); }
   if (t.priority === 'high') m.push(metaTxt('High priority', 'hi'));
+  if (urlsIn(t.notes).length) m.push(metaTxt('Has link'));
   return m;
 }
 function routineMeta(t) {
@@ -433,8 +451,9 @@ function viewProjects() {
     return `<article class="card project" style="--c:${esc(catColor(p.category))}">
       <div class="p-head">
         <div><button type="button" class="p-title" data-act="edit" data-id="${esc(p.id)}"><span class="dot-c"></span>${esc(p.title)}</button>
-        <div class="p-meta">${esc(p.category)}${p.notes ? ` · ${esc(p.notes.split('\n')[0].slice(0, 80))}` : ''}</div></div>${pill}
+        <div class="p-meta">${esc(p.category)}</div></div>${pill}
       </div>
+      ${p.notes ? `<div class="p-notes">${linkify(p.notes)}</div>` : ''}
       <div class="progress"><div class="track"><div class="fill" style="width:${st.pct}%"></div></div><span>${st.done}/${st.total}</span></div>
       ${open.length ? `<div class="list">${open.map((t) => itemRow(t, { meta: taskMeta(t).filter((m) => !m.includes('dot-c') && !m.includes(esc(p.title))) })).join('')}</div>` : ''}
       <div class="btn-row" style="margin-top:12px"><button type="button" class="linkbtn" data-act="addToProject" data-id="${esc(p.id)}">+ Add task</button></div>
@@ -607,6 +626,7 @@ function openSheet(t, preset = {}) {
     <label class="switch only-routine"><span>Paused</span><input type="checkbox" name="paused" ${t.status === 'paused' ? 'checked' : ''}></label>
     <label class="switch only-project"><span>Finished</span><input type="checkbox" name="pdone" ${t.kind === 'project' && t.status === 'done' ? 'checked' : ''}></label>
     <label class="field"><span>Notes</span><textarea name="notes" placeholder="Optional">${esc(t.notes)}</textarea></label>
+    ${urlsIn(t.notes).length ? `<div class="links">${urlsIn(t.notes).map((u) => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">Open ${esc(linkLabel(u))} ↗</a>`).join('')}</div>` : ''}
     <p class="error" id="sheetError" hidden></p>
     <div class="sheet-actions">
       ${isNew ? '' : '<button type="button" class="btn danger" data-act="deleteItem">Delete</button>'}
