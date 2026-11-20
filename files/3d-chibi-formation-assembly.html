@@ -369,7 +369,7 @@
             totalDuration: 44.0, // 44 seconds: leaves time for late crawlers to stand and sitters to sit
             steadyHex: '#34b368',
             stumblerHex: '#e64848',
-            spawnSeed: 101
+            spawnSeed: Math.floor(Math.random() * 100000) + 1 // fresh layout on every load
         };
 
         /**
@@ -1631,19 +1631,18 @@
 
             btnPlayPause.addEventListener('click', () => {
                 if (state.elapsed >= CONFIG.totalDuration) {
-                    state.elapsed = 0;
+                    // Finished: replaying gets a brand-new seed
+                    regenerateWithCurrentSettings(true);
+                    return;
                 }
                 state.isPlaying = !state.isPlaying;
                 if (state.isPlaying) hideHudNow();
                 syncPlayButtonUI();
             });
 
+            // Replay always rolls a new seed: new spawn spots, falls, crawlers and sitters
             document.getElementById('btn-restart').addEventListener('click', () => {
-                state.elapsed = 0;
-                state.isPlaying = true;
-                characters.forEach(c => c.falls.forEach(f => f.dustSpawned = false));
-                hideHudNow();
-                syncPlayButtonUI();
+                regenerateWithCurrentSettings(true);
             });
 
             // Settings Panel Toggle
