@@ -161,6 +161,12 @@
             #status-banner { display: block; }
         }
 
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; }
+        .toggle-row input { appearance: none; -webkit-appearance: none; width: 34px; height: 20px; border-radius: 999px; background: #cbd5e1; position: relative; margin: 0; cursor: pointer; transition: background 0.2s; flex: none; }
+        .toggle-row input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.25); transition: transform 0.2s; }
+        .toggle-row input:checked { background: var(--ink); }
+        .toggle-row input:checked::after { transform: translateX(14px); }
+
         .back-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin: -4px -2px -4px -6px; border-radius: 10px; color: var(--ink-2); }
         .back-btn:hover { background: rgba(226, 232, 240, 0.7); }
         .back-btn svg { width: 18px; height: 18px; }
@@ -274,6 +280,13 @@
             </div>
         </div>
 
+        <div class="group">
+            <label class="toggle-row" for="toggle-avatars">
+                <span>Show avatars above personnel</span>
+                <input id="toggle-avatars" type="checkbox" checked>
+            </label>
+        </div>
+
         <button id="btn-apply-regenerate" class="btn-dark">
             <svg class="icon" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3"></path></svg>
             <span>Apply &amp; Randomize Spawns</span>
@@ -369,6 +382,7 @@
             totalDuration: 44.0, // 44 seconds: leaves time for late crawlers to stand and sitters to sit
             steadyHex: '#34b368',
             stumblerHex: '#e64848',
+            showAvatars: true,
             spawnSeed: Math.floor(Math.random() * 100000) + 1 // fresh layout on every load
         };
 
@@ -794,7 +808,10 @@
          */
         function buildSimulation() {
             // Remove previous character meshes if regenerating
-            characters.forEach(c => scene.remove(c.rig.root));
+            characters.forEach(c => {
+                scene.remove(c.rig.root);
+                if (c.avatar) { scene.remove(c.avatar); c.avatar.material.map.dispose(); c.avatar.material.dispose(); }
+            });
             characters = [];
 
             // Remove active dust particles
@@ -963,6 +980,7 @@
                     startTime,
                     walkDuration,
                     falls,
+                    avatar: createAvatarSprite(charSeed + CONFIG.spawnSeed * 13),
                     walkPhaseOffset: seededRandom(charSeed + 7) * Math.PI * 2,
                     wobbleFreq: 2.8 + seededRandom(charSeed + 8) * 1.5,
                     arrived: false,
@@ -978,6 +996,115 @@
                 state.followedChar = redChars[state.followedRedIndex];
             } else {
                 state.followedChar = null;
+            }
+        }
+
+        // ==========================================
+        // 4b. RANDOM CARTOON AVATARS (drawn locally, no internet images)
+        // ==========================================
+        const AVATAR_BG = ['#fde68a', '#bfdbfe', '#c7d2fe', '#fbcfe8', '#bbf7d0', '#fed7aa', '#e9d5ff', '#a5f3fc', '#fecaca', '#d9f99d'];
+        const AVATAR_SKIN = ['#ffdbac', '#f9d7b5', '#f1c27d', '#e0ac69', '#c68642', '#8d5524'];
+        const AVATAR_HAIR = ['#2b1b12', '#4a2c1a', '#6b3e26', '#a0522d', '#d4a017', '#1f2937', '#b45309', '#9ca3af'];
+        const AVATAR_SHIRT = ['#2563eb', '#0f766e', '#db2777', '#ea580c', '#7c3aed', '#334155', '#16a34a', '#0891b2'];
+
+        function drawAvatarTexture(seed) {
+            const S = 128;
+            const cv = document.createElement('canvas');
+            cv.width = cv.height = S;
+            const g = cv.getContext('2d');
+            const R = k => seededRandom(seed * 7.13 + k * 3.71);
+            const pick = (arr, k) => arr[Math.floor(R(k) * arr.length) % arr.length];
+            const circle = (x, y, r, fill) => { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = fill; g.fill(); };
+            const skin = pick(AVATAR_SKIN, 2);
+            const hair = pick(AVATAR_HAIR, 3);
+            const style = Math.floor(R(4) * 6); // 0 short, 1 long, 2 bun, 3 curly, 4 bald, 5 cap
+
+            // White badge rim + coloured background
+            circle(64, 64, 63, '#ffffff');
+            circle(64, 64, 57, pick(AVATAR_BG, 1));
+            g.save();
+            g.beginPath(); g.arc(64, 64, 57, 0, Math.PI * 2); g.clip();
+
+            // Shoulders and neck
+            g.fillStyle = pick(AVATAR_SHIRT, 5);
+            g.beginPath(); g.ellipse(64, 132, 46, 34, 0, 0, Math.PI * 2); g.fill();
+            g.fillStyle = skin; g.fillRect(56, 82, 16, 18);
+
+            // Long hair sits behind the face
+            if (style === 1) {
+                g.fillStyle = hair;
+                g.beginPath(); g.ellipse(64, 66, 34, 38, 0, 0, Math.PI * 2); g.fill();
+                g.fillRect(30, 66, 68, 36);
+            }
+
+            // Ears + face
+            circle(36, 64, 6, skin); circle(92, 64, 6, skin);
+            g.fillStyle = skin;
+            g.beginPath(); g.ellipse(64, 62, 27, 30, 0, 0, Math.PI * 2); g.fill();
+
+            // Hair on top
+            g.fillStyle = hair;
+            if (style === 0 || style === 1 || style === 2) {
+                g.beginPath(); g.ellipse(64, 48, 29, 20, 0, Math.PI, 0); g.fill();
+                g.beginPath(); g.ellipse(52 + R(6) * 20, 44, 18, 9, (R(7) - 0.5) * 0.6, 0, Math.PI * 2); g.fill();
+                if (style === 2) circle(64, 21, 11, hair);
+            } else if (style === 3) {
+                for (let i = 0; i < 9; i++) {
+                    const a = Math.PI + (i / 8) * Math.PI;
+                    circle(64 + Math.cos(a) * 26, 50 + Math.sin(a) * 20, 9.5, hair);
+                }
+            } else if (style === 5) {
+                const cap = pick(AVATAR_SHIRT, 8);
+                g.fillStyle = cap;
+                g.beginPath(); g.ellipse(64, 46, 30, 22, 0, Math.PI, 0); g.fill();
+                g.beginPath(); g.ellipse(R(9) > 0.5 ? 82 : 46, 46, 20, 5, 0, 0, Math.PI * 2); g.fill();
+            }
+
+            // Eyes: open dots or happy arcs
+            g.fillStyle = '#1f2937'; g.strokeStyle = '#1f2937'; g.lineWidth = 2.6; g.lineCap = 'round';
+            if (R(10) > 0.3) { circle(54, 63, 3.4, '#1f2937'); circle(74, 63, 3.4, '#1f2937'); }
+            else {
+                g.beginPath(); g.arc(54, 65, 4, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
+                g.beginPath(); g.arc(74, 65, 4, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
+            }
+            // Glasses
+            if (R(11) < 0.25) {
+                g.strokeStyle = '#334155'; g.lineWidth = 2;
+                g.beginPath(); g.arc(54, 63, 7.5, 0, Math.PI * 2); g.stroke();
+                g.beginPath(); g.arc(74, 63, 7.5, 0, Math.PI * 2); g.stroke();
+                g.beginPath(); g.moveTo(61.5, 63); g.lineTo(66.5, 63); g.stroke();
+            }
+            // Blush + smile
+            if (R(12) > 0.5) { g.globalAlpha = 0.35; circle(46, 72, 4.5, '#f43f5e'); circle(82, 72, 4.5, '#f43f5e'); g.globalAlpha = 1; }
+            g.strokeStyle = '#7c2d12'; g.lineWidth = 2.6;
+            g.beginPath(); g.arc(64, 70, 8 + R(13) * 3, Math.PI * 0.2, Math.PI * 0.8); g.stroke();
+            g.restore();
+
+            const tex = new THREE.CanvasTexture(cv);
+            tex.anisotropy = 4;
+            return tex;
+        }
+
+        function createAvatarSprite(seed) {
+            const mat = new THREE.SpriteMaterial({ map: drawAvatarTexture(seed), transparent: true, depthWrite: false, fog: false });
+            mat.toneMapped = false; // keep avatar colours crisp (not dulled by the studio tone mapping)
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(0.9, 0.9, 1);
+            sprite.renderOrder = 2;
+            sprite.visible = CONFIG.showAvatars;
+            scene.add(sprite);
+            return sprite;
+        }
+
+        // Keep each avatar floating just above its owner's head (also while lying, crawling or sitting)
+        const _headPos = new THREE.Vector3();
+        function updateAvatars(t) {
+            for (let i = 0; i < characters.length; i++) {
+                const c = characters[i];
+                if (!c.avatar || !c.avatar.visible) continue;
+                c.rig.root.updateMatrixWorld(true);
+                c.rig.headGroup.localToWorld(_headPos.set(0, 0.64, 0));
+                c.avatar.position.set(_headPos.x, _headPos.y + 0.98 + Math.sin(t * 2.2 + c.walkPhaseOffset) * 0.03, _headPos.z);
             }
         }
 
@@ -1610,6 +1737,11 @@
         }
 
         function initUI() {
+            document.getElementById('toggle-avatars').addEventListener('change', (e) => {
+                CONFIG.showAvatars = e.target.checked;
+                characters.forEach(c => { if (c.avatar) c.avatar.visible = CONFIG.showAvatars; });
+            });
+
             renderShadeSwatches();
 
             const btnPlayPause = document.getElementById('btn-play-pause');
@@ -1874,6 +2006,7 @@
             }
 
             updateDustParticles(rawDt * state.speed);
+            updateAvatars(now / 1000);
             updateCamera(rawDt);
             updateHUD();
 
