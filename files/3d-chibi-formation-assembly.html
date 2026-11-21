@@ -424,47 +424,51 @@
         // ==========================================
         // Shared geometries for high performance across 50 articulated figures
         const sharedGeos = {};
+        const ARM_UPPER = 0.41;                               // shoulder -> elbow
+        const ARM_LOWER = 0.39;                               // elbow -> centre of hand
+        const SHOULDER_POS = new THREE.Vector3(0.29, 0.32, 0); // right shoulder, in torso space (left mirrors x)
 
         function initSharedGeometries() {
-            // Oversized smooth featureless head (slightly wider/oval sphere matching reference)
-            sharedGeos.head = new THREE.SphereGeometry(0.56, 32, 28);
-            sharedGeos.head.scale(1.04, 0.96, 0.98);
+            // Smooth, featureless "3D people" look: big round head, slim seamless body,
+            // thin limbs with joints the same width as the limb (no visible balls), mitten hands.
+            sharedGeos.head = new THREE.SphereGeometry(0.58, 40, 32);
+            sharedGeos.neck = new THREE.CylinderGeometry(0.075, 0.09, 0.2, 18);
 
-            // Short smooth neck
-            sharedGeos.neck = new THREE.CylinderGeometry(0.14, 0.18, 0.22, 18);
+            // One-piece torso turned on a lathe: hips -> slight waist -> chest -> rounded shoulders
+            const profile = new THREE.SplineCurve([
+                new THREE.Vector2(0.0, -0.42), new THREE.Vector2(0.12, -0.40), new THREE.Vector2(0.2, -0.34),
+                new THREE.Vector2(0.235, -0.22), new THREE.Vector2(0.225, -0.06), new THREE.Vector2(0.21, 0.06),
+                new THREE.Vector2(0.225, 0.2), new THREE.Vector2(0.215, 0.32), new THREE.Vector2(0.17, 0.41),
+                new THREE.Vector2(0.09, 0.47), new THREE.Vector2(0.0, 0.49)
+            ]).getPoints(40);
+            sharedGeos.torso = new THREE.LatheGeometry(profile, 40);
+            sharedGeos.pelvisCap = new THREE.SphereGeometry(0.21, 24, 16);
 
-            // Compact rounded torso (capsule-like tapered body)
-            sharedGeos.torso = new THREE.CylinderGeometry(0.28, 0.34, 0.68, 24);
-            sharedGeos.chestCap = new THREE.SphereGeometry(0.28, 24, 16);
-            sharedGeos.pelvisCap = new THREE.SphereGeometry(0.34, 24, 16);
+            // Arms: long and slim, so hands can reach hips, knees and the big head
+            sharedGeos.shoulderJoint = new THREE.SphereGeometry(0.074, 16, 12);
+            sharedGeos.upperArm = new THREE.CylinderGeometry(0.074, 0.068, ARM_UPPER, 16);
+            sharedGeos.elbowJoint = new THREE.SphereGeometry(0.068, 16, 12);
+            sharedGeos.foreArm = new THREE.CylinderGeometry(0.068, 0.06, ARM_LOWER - 0.04, 16);
+            sharedGeos.handPalm = new THREE.SphereGeometry(0.075, 18, 14);
+            sharedGeos.handPalm.scale(0.72, 1.25, 1.0);
+            sharedGeos.thumb = new THREE.SphereGeometry(0.03, 10, 8);
 
-            // Upper & Lower Arms (rounded capsules/cylinders with joint spheres)
-            sharedGeos.shoulderJoint = new THREE.SphereGeometry(0.115, 16, 14);
-            sharedGeos.upperArm = new THREE.CylinderGeometry(0.105, 0.095, 0.34, 16);
-            sharedGeos.elbowJoint = new THREE.SphereGeometry(0.095, 16, 14);
-            sharedGeos.foreArm = new THREE.CylinderGeometry(0.092, 0.082, 0.32, 16);
+            // Legs: slim and smooth
+            sharedGeos.hipJoint = new THREE.SphereGeometry(0.105, 16, 12);
+            sharedGeos.thigh = new THREE.CylinderGeometry(0.105, 0.092, 0.36, 18);
+            sharedGeos.kneeJoint = new THREE.SphereGeometry(0.092, 16, 12);
+            sharedGeos.shin = new THREE.CylinderGeometry(0.092, 0.082, 0.34, 18);
 
-            // Cute rounded mitten hand with subtle thumb/finger contour
-            sharedGeos.handPalm = new THREE.SphereGeometry(0.105, 16, 14);
-            sharedGeos.handPalm.scale(0.85, 1.15, 1.05);
-            sharedGeos.thumb = new THREE.SphereGeometry(0.048, 12, 10);
-
-            // Sturdy tapered legs
-            sharedGeos.hipJoint = new THREE.SphereGeometry(0.145, 16, 14);
-            sharedGeos.thigh = new THREE.CylinderGeometry(0.145, 0.125, 0.36, 18);
-            sharedGeos.kneeJoint = new THREE.SphereGeometry(0.122, 16, 14);
-            sharedGeos.shin = new THREE.CylinderGeometry(0.122, 0.11, 0.34, 18);
-
-            // Oversized cute rounded shoes/feet matching reference image
-            sharedGeos.footMain = new THREE.SphereGeometry(0.18, 20, 16);
-            sharedGeos.footMain.scale(0.95, 0.65, 1.48);
-            sharedGeos.footHeel = new THREE.SphereGeometry(0.135, 16, 14);
-            sharedGeos.footHeel.scale(0.95, 0.72, 1.0);
+            // Small rounded feet
+            sharedGeos.footMain = new THREE.SphereGeometry(0.115, 20, 14);
+            sharedGeos.footMain.scale(0.95, 0.58, 1.45);
+            sharedGeos.footHeel = new THREE.SphereGeometry(0.085, 14, 12);
+            sharedGeos.footHeel.scale(1.0, 0.75, 1.0);
         }
 
         /**
-         * Builds a single articulated chibi mannequin character with hierarchical joints
-         * so we can animate walking, falling, pushing up, and the hands-on-hips pose.
+         * Builds a single articulated figure with hierarchical joints
+         * so we can animate walking, falling, crawling, sitting and the end poses.
          */
         function createChibiCharacter(material) {
             const root = new THREE.Group();
@@ -478,87 +482,49 @@
             pelvis.position.y = 0.82;
             fallPivot.add(pelvis);
 
-            // Pelvis rounded base
-            const pelvisMesh = new THREE.Mesh(sharedGeos.pelvisCap, material);
-            pelvisMesh.scale.set(1.0, 0.78, 0.92);
-            pelvisMesh.castShadow = true;
-            pelvisMesh.receiveShadow = true;
-            pelvis.add(pelvisMesh);
+            const mesh = (geo, parent, x = 0, y = 0, z = 0) => {
+                const m = new THREE.Mesh(geo, material);
+                m.position.set(x, y, z);
+                m.castShadow = true;
+                m.receiveShadow = true;
+                parent.add(m);
+                return m;
+            };
+
+            mesh(sharedGeos.pelvisCap, pelvis).scale.set(1.0, 0.75, 0.82);
 
             // Torso group
             const torsoGroup = new THREE.Group();
             torsoGroup.position.y = 0.30;
             pelvis.add(torsoGroup);
+            mesh(sharedGeos.torso, torsoGroup).scale.set(1.0, 1.0, 0.84);
 
-            const torsoMesh = new THREE.Mesh(sharedGeos.torso, material);
-            torsoMesh.scale.set(1.0, 1.0, 0.90);
-            torsoMesh.castShadow = true;
-            torsoMesh.receiveShadow = true;
-            torsoGroup.add(torsoMesh);
-
-            const chestMesh = new THREE.Mesh(sharedGeos.chestCap, material);
-            chestMesh.position.y = 0.32;
-            chestMesh.scale.set(1.0, 0.75, 0.90);
-            chestMesh.castShadow = true;
-            chestMesh.receiveShadow = true;
-            torsoGroup.add(chestMesh);
-
-            // Neck & Oversized Head
+            // Neck & oversized round head
             const headGroup = new THREE.Group();
             headGroup.position.y = 0.48;
             torsoGroup.add(headGroup);
+            mesh(sharedGeos.neck, headGroup, 0, 0.04, 0);
+            mesh(sharedGeos.head, headGroup, 0, 0.64, 0);
 
-            const neckMesh = new THREE.Mesh(sharedGeos.neck, material);
-            neckMesh.position.y = 0.06;
-            neckMesh.castShadow = true;
-            headGroup.add(neckMesh);
-
-            const headMesh = new THREE.Mesh(sharedGeos.head, material);
-            headMesh.position.y = 0.64;
-            headMesh.castShadow = true;
-            headMesh.receiveShadow = true;
-            headGroup.add(headMesh);
-
-            // Helper to build articulated Left & Right Arms
             function createArm(side) {
                 // side: -1 for Left (-X), +1 for Right (+X)
                 const shoulder = new THREE.Group();
-                shoulder.position.set(side * 0.31, 0.25, 0);
+                shoulder.position.copy(SHOULDER_POS).setX(side * SHOULDER_POS.x);
                 torsoGroup.add(shoulder);
-
-                const shoulderSphere = new THREE.Mesh(sharedGeos.shoulderJoint, material);
-                shoulderSphere.castShadow = true;
-                shoulder.add(shoulderSphere);
-
-                const upperArmMesh = new THREE.Mesh(sharedGeos.upperArm, material);
-                upperArmMesh.position.y = -0.17;
-                upperArmMesh.castShadow = true;
-                shoulder.add(upperArmMesh);
+                mesh(sharedGeos.shoulderJoint, shoulder);
+                mesh(sharedGeos.upperArm, shoulder, 0, -ARM_UPPER / 2, 0);
 
                 const elbow = new THREE.Group();
-                elbow.position.y = -0.34;
+                elbow.position.y = -ARM_UPPER;
                 shoulder.add(elbow);
-
-                const elbowSphere = new THREE.Mesh(sharedGeos.elbowJoint, material);
-                elbowSphere.castShadow = true;
-                elbow.add(elbowSphere);
-
-                const foreArmMesh = new THREE.Mesh(sharedGeos.foreArm, material);
-                foreArmMesh.position.y = -0.16;
-                foreArmMesh.castShadow = true;
-                elbow.add(foreArmMesh);
+                mesh(sharedGeos.elbowJoint, elbow);
+                mesh(sharedGeos.foreArm, elbow, 0, -(ARM_LOWER - 0.04) / 2, 0);
 
                 const hand = new THREE.Group();
-                hand.position.y = -0.33;
+                hand.position.y = -ARM_LOWER;
                 elbow.add(hand);
-
-                const palmMesh = new THREE.Mesh(sharedGeos.handPalm, material);
-                palmMesh.castShadow = true;
-                hand.add(palmMesh);
-
-                const thumbMesh = new THREE.Mesh(sharedGeos.thumb, material);
-                thumbMesh.position.set(-side * 0.06, 0.02, 0.06);
-                hand.add(thumbMesh);
+                mesh(sharedGeos.handPalm, hand);
+                mesh(sharedGeos.thumb, hand, -side * 0.035, 0.035, 0.045);
 
                 return { shoulder, elbow, hand };
             }
@@ -566,48 +532,24 @@
             const leftArm = createArm(-1);
             const rightArm = createArm(1);
 
-            // Helper to build articulated Left & Right Legs
             function createLeg(side) {
                 const hip = new THREE.Group();
-                hip.position.set(side * 0.17, -0.06, 0);
+                hip.position.set(side * 0.12, -0.06, 0);
                 pelvis.add(hip);
-
-                const hipSphere = new THREE.Mesh(sharedGeos.hipJoint, material);
-                hipSphere.castShadow = true;
-                hip.add(hipSphere);
-
-                const thighMesh = new THREE.Mesh(sharedGeos.thigh, material);
-                thighMesh.position.y = -0.18;
-                thighMesh.castShadow = true;
-                hip.add(thighMesh);
+                mesh(sharedGeos.hipJoint, hip);
+                mesh(sharedGeos.thigh, hip, 0, -0.18, 0);
 
                 const knee = new THREE.Group();
                 knee.position.y = -0.36;
                 hip.add(knee);
-
-                const kneeSphere = new THREE.Mesh(sharedGeos.kneeJoint, material);
-                kneeSphere.castShadow = true;
-                knee.add(kneeSphere);
-
-                const shinMesh = new THREE.Mesh(sharedGeos.shin, material);
-                shinMesh.position.y = -0.17;
-                shinMesh.castShadow = true;
-                knee.add(shinMesh);
+                mesh(sharedGeos.kneeJoint, knee);
+                mesh(sharedGeos.shin, knee, 0, -0.17, 0);
 
                 const foot = new THREE.Group();
-                foot.position.set(0, -0.34, 0.04);
+                foot.position.set(0, -0.34, 0.02);
                 knee.add(foot);
-
-                const footMainMesh = new THREE.Mesh(sharedGeos.footMain, material);
-                footMainMesh.position.set(0, 0.03, 0.06);
-                footMainMesh.castShadow = true;
-                footMainMesh.receiveShadow = true;
-                foot.add(footMainMesh);
-
-                const footHeelMesh = new THREE.Mesh(sharedGeos.footHeel, material);
-                footHeelMesh.position.set(0, 0.035, -0.08);
-                footHeelMesh.castShadow = true;
-                foot.add(footHeelMesh);
+                mesh(sharedGeos.footMain, foot, 0, -0.005, 0.05);
+                mesh(sharedGeos.footHeel, foot, 0, 0.0, -0.035);
 
                 return { hip, knee, foot };
             }
@@ -615,17 +557,7 @@
             const leftLeg = createLeg(-1);
             const rightLeg = createLeg(1);
 
-            return {
-                root,
-                fallPivot,
-                pelvis,
-                torsoGroup,
-                headGroup,
-                leftArm,
-                rightArm,
-                leftLeg,
-                rightLeg
-            };
+            return { root, fallPivot, pelvis, torsoGroup, headGroup, leftArm, rightArm, leftLeg, rightLeg };
         }
 
         // ==========================================
@@ -717,13 +649,13 @@
             // Initialize shared PBR clay/vinyl materials for both groups
             steadyMaterial = new THREE.MeshStandardMaterial({
                 color: new THREE.Color(CONFIG.steadyHex),
-                roughness: 0.72,
-                metalness: 0.04
+                roughness: 0.55,
+                metalness: 0.0
             });
             stumblerMaterial = new THREE.MeshStandardMaterial({
                 color: new THREE.Color(CONFIG.stumblerHex),
-                roughness: 0.72,
-                metalness: 0.04
+                roughness: 0.55,
+                metalness: 0.0
             });
         }
 
@@ -988,6 +920,13 @@
                     currentYaw: initialYaw
                 });
             });
+
+            // A few red figures (2-4, never the sitters) finish in a different pose
+            const poseCandidates = characters.filter(c => c.isRed && !c.isSitter)
+                .sort((a, b) => seededRandom(CONFIG.spawnSeed * 5 + a.id * 13) - seededRandom(CONFIG.spawnSeed * 5 + b.id * 13));
+            const poseOrder = END_POSES.map((p, i) => [seededRandom(CONFIG.spawnSeed * 11 + i * 7), p]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
+            const specialCount = Math.min(poseCandidates.length, 2 + Math.floor(seededRandom(CONFIG.spawnSeed * 17 + 1) * 3));
+            poseCandidates.forEach((c, i) => { c.endPose = i < specialCount ? poseOrder[i % poseOrder.length] : 'hips'; });
 
             // Reset followed stumbler reference if in follow mode
             const redChars = characters.filter(c => c.isRed);
@@ -1434,51 +1373,15 @@
                 return;
             }
 
-            // Gentle proud breathing idle once in formation
-            const idleBreath = Math.sin(t * 2.6 + char.walkPhaseOffset) * 0.018 * settleBlend;
-            rig.pelvis.position.y = 0.82 + idleBreath * 0.4;
-            rig.torsoGroup.rotation.x = -0.04 * settleBlend; // Slight confident chest-out tilt
-            rig.headGroup.rotation.x = 0.03 * settleBlend;
-
-            // Legs plant neatly shoulder-width apart
-            applyNeutralLegsPose(rig);
-
-            // Iconic Hands-On-Hips Pose (matching the attached reference image)
-            // Upper arms flare outward (~42 deg), elbows bend inward (~82 deg) so hands rest cleanly on waist!
-            const poseT = settleBlend;
-
-            // Left Arm (-X side)
-            rig.leftArm.shoulder.rotation.set(
-                lerp(0, 0.12, poseT),
-                lerp(0, -0.25, poseT),
-                lerp(-0.18, -0.74, poseT)
-            );
-            rig.leftArm.elbow.rotation.set(
-                lerp(-0.3, -0.18, poseT),
-                0,
-                lerp(0, 1.48, poseT)
-            );
-            rig.leftArm.hand.rotation.set(0, 0, lerp(0, 0.35, poseT));
-
-            // Right Arm (+X side)
-            rig.rightArm.shoulder.rotation.set(
-                lerp(0, 0.12, poseT),
-                lerp(0, 0.25, poseT),
-                lerp(0.18, 0.74, poseT)
-            );
-            rig.rightArm.elbow.rotation.set(
-                lerp(-0.3, -0.18, poseT),
-                0,
-                lerp(0, -1.48, poseT)
-            );
-            rig.rightArm.hand.rotation.set(0, 0, lerp(0, -0.35, poseT));
+            // End pose: hands on hips for most; some red figures get a tired / head / wave pose
+            applyEndPose(char, rig, settleBlend, t);
         }
 
         // Crawl / sit poses. Angles are relative to the body: with the body pitched forward by P,
         // a limb rotated by -P hangs straight down, and a knee bent 90 degrees lays the shin flat.
         const CRAWL_SLOWDOWN = 1.6;           // crawling covers ground 1.6x slower than walking
-        const CRAWL_PITCH = 1.02;             // ~58 degrees forward: hands and knees both reach the floor
-        const CRAWL_LIFT = 0.05;
+        const CRAWL_PITCH = 0.79;             // ~45 degrees forward: hands and knees both reach the floor
+        const CRAWL_LIFT = -0.13;
         const LYING_POSE = { pitch: Math.PI / 2 - 0.08, lift: 0.26, shoulderX: -0.6, shoulderZ: 0.45, elbowX: -0.4, hipX: 0, hipZ: 0, kneeX: 0, headX: 0 };
         const STANDING_POSE = { pitch: 0, lift: 0, shoulderX: 0, shoulderZ: 0.18, elbowX: -0.2, hipX: 0, hipZ: 0.04, kneeX: 0, headX: 0 };
 
@@ -1512,6 +1415,93 @@
             rig.rightLeg.foot.rotation.set(0, 0, 0);
         }
 
+        // ---------- Two-bone arm IK ----------
+        // Puts the hand on `target` (torso space), with the elbow bending towards shoulder + `poleOffset`.
+        // w blends from the arm's current rotation (0) to the solved pose (1).
+        const _DOWN = new THREE.Vector3(0, -1, 0);
+        const _ikA = new THREE.Vector3(), _ikB = new THREE.Vector3(), _ikC = new THREE.Vector3(), _ikE = new THREE.Vector3();
+        const _ikQ = new THREE.Quaternion(), _ikQ2 = new THREE.Quaternion(), _ikQi = new THREE.Quaternion();
+        function solveArmIK(arm, target, poleOffset, w) {
+            if (w <= 0) return;
+            const S = arm.shoulder.position;
+            const toT = _ikA.copy(target).sub(S);
+            let d = toT.length();
+            const maxD = ARM_UPPER + ARM_LOWER - 0.002;
+            if (d > maxD) { toT.multiplyScalar(maxD / d); d = maxD; }
+            d = Math.max(d, 0.05);
+            const dir = _ikB.copy(toT).divideScalar(d);
+            const a = (ARM_UPPER * ARM_UPPER - ARM_LOWER * ARM_LOWER + d * d) / (2 * d);
+            const h = Math.sqrt(Math.max(0, ARM_UPPER * ARM_UPPER - a * a));
+            const pole = _ikC.copy(poleOffset);
+            pole.addScaledVector(dir, -pole.dot(dir)).normalize();
+            const E = _ikE.copy(S).addScaledVector(dir, a).addScaledVector(pole, h);       // elbow position
+            _ikQ.setFromUnitVectors(_DOWN, _ikC.copy(E).sub(S).normalize());               // shoulder
+            const fore = _ikC.copy(S).add(toT).sub(E).normalize()
+                .applyQuaternion(_ikQi.copy(_ikQ).invert());                                 // forearm in shoulder space
+            _ikQ2.setFromUnitVectors(_DOWN, fore);
+            arm.shoulder.quaternion.slerp(_ikQ, w);
+            arm.elbow.quaternion.slerp(_ikQ2, w);
+        }
+        const _v = new THREE.Vector3();
+        function kneeInTorso(rig, leg) {
+            rig.root.updateMatrixWorld(true);
+            return rig.torsoGroup.worldToLocal(leg.knee.getWorldPosition(_v)).clone();
+        }
+
+        const END_POSES = ['tired', 'handsOnHead', 'handOnHead', 'wave'];
+
+        /** Final pose once a figure stands on its spot. w = settle blend (0..1). */
+        function applyEndPose(char, rig, w, t) {
+            const pose = char.endPose || 'hips';
+            const ph = char.walkPhaseOffset;
+            applyIdleArmsDownPose(rig, 0); // blend starts from relaxed arms
+            const hipT = sd => new THREE.Vector3(sd * 0.27, -0.03, 0.03);
+            const hipPole = sd => new THREE.Vector3(sd * 0.9, 0.1, -0.35);
+
+            if (pose === 'tired') {
+                // Bent over, hands on knees, panting
+                const pant = Math.sin(t * 7 + ph) * 0.025 * w;
+                rig.pelvis.position.y = lerp(0.82, 0.785, w);
+                rig.torsoGroup.rotation.set(lerp(0, 0.62, w) + pant, 0, 0);
+                rig.headGroup.rotation.set(lerp(0, -0.5, w) - pant, 0, 0);
+                [rig.leftLeg, rig.rightLeg].forEach((l, i) => {
+                    l.hip.rotation.set(lerp(0, -0.32, w), 0, (i ? 1 : -1) * 0.06);
+                    l.knee.rotation.set(lerp(0, 0.56, w), 0, 0);
+                    l.foot.rotation.set(lerp(0, -0.24, w), 0, 0);
+                });
+                solveArmIK(rig.leftArm, kneeInTorso(rig, rig.leftLeg).add(new THREE.Vector3(-0.03, 0.1, 0.08)), new THREE.Vector3(-0.8, 0.2, -0.3), w);
+                solveArmIK(rig.rightArm, kneeInTorso(rig, rig.rightLeg).add(new THREE.Vector3(0.03, 0.1, 0.08)), new THREE.Vector3(0.8, 0.2, -0.3), w);
+                return;
+            }
+
+            // Standing poses
+            rig.pelvis.position.y = 0.82 + Math.sin(t * 2.6 + ph) * 0.007 * w;
+            rig.torsoGroup.rotation.x = -0.04 * w;
+            rig.headGroup.rotation.x = 0.03 * w;
+            applyNeutralLegsPose(rig);
+
+            if (pose === 'handsOnHead') {
+                // Both hands on the head, shaking it in disbelief
+                rig.headGroup.rotation.y = Math.sin(t * 2.4 + ph) * 0.2 * w;
+                rig.headGroup.rotation.x = 0.08 * w;
+                solveArmIK(rig.leftArm, new THREE.Vector3(-0.6, 1.0, 0.06), new THREE.Vector3(-0.9, 0.6, 0.6), w);
+                solveArmIK(rig.rightArm, new THREE.Vector3(0.6, 1.0, 0.06), new THREE.Vector3(0.9, 0.6, 0.6), w);
+            } else if (pose === 'handOnHead') {
+                // One hand scratching the side of the head, head tilted towards it
+                rig.headGroup.rotation.z = -0.14 * w;
+                const scratch = Math.sin(t * 9 + ph) * 0.02;
+                solveArmIK(rig.rightArm, new THREE.Vector3(0.64, 1.04 + scratch, -0.02), new THREE.Vector3(0.9, 0.5, 0.5), w);
+            } else if (pose === 'wave') {
+                // One hand on the hip, the other waving
+                solveArmIK(rig.leftArm, hipT(-1), hipPole(-1), w);
+                solveArmIK(rig.rightArm, new THREE.Vector3(0.74 + Math.sin(t * 8 + ph) * 0.1, 0.86, 0.34), new THREE.Vector3(0.9, -0.7, 0.1), w);
+            } else {
+                // Classic hands on hips
+                solveArmIK(rig.leftArm, hipT(-1), hipPole(-1), w);
+                solveArmIK(rig.rightArm, hipT(1), hipPole(1), w);
+            }
+        }
+
         /** Sitting on the floor, knees up, hands resting on the knees. w = 0 standing, 1 seated. */
         function applySitPose(rig, w, t, phase) {
             const breath = Math.sin(t * 2.4 + phase) * 0.012 * w;
@@ -1526,12 +1516,8 @@
             rig.leftLeg.foot.rotation.set(lerp(0, 0.7, w), 0, 0);
             rig.rightLeg.foot.rotation.set(lerp(0, 0.7, w), 0, 0);
 
-            rig.leftArm.shoulder.rotation.set(lerp(0, -0.75, w), 0, lerp(-0.18, -0.14, w));
-            rig.rightArm.shoulder.rotation.set(lerp(0, -0.75, w), 0, lerp(0.18, 0.14, w));
-            rig.leftArm.elbow.rotation.set(lerp(-0.2, -0.04, w), 0, 0);
-            rig.rightArm.elbow.rotation.set(lerp(-0.2, -0.04, w), 0, 0);
-            rig.leftArm.hand.rotation.set(0, 0, 0);
-            rig.rightArm.hand.rotation.set(0, 0, 0);
+            solveArmIK(rig.leftArm, kneeInTorso(rig, rig.leftLeg).add(new THREE.Vector3(-0.02, 0.1, 0.04)), new THREE.Vector3(-0.7, 0, -0.2), w);
+            solveArmIK(rig.rightArm, kneeInTorso(rig, rig.rightLeg).add(new THREE.Vector3(0.02, 0.1, 0.04)), new THREE.Vector3(0.7, 0, -0.2), w);
         }
 
         function applyIdleArmsDownPose(rig, breath) {
