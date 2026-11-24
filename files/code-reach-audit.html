@@ -1,0 +1,1234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Reach Audit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: inspection sheet — intake band, verdict strip drawn to scale, tabbed ledgers of calls, resources and findings */
+:root{
+  --paper:#eef1f4; --sheet:#ffffff; --ink:#152230; --muted:#5a6878; --line:#d5dce4; --line-strong:#b9c3ce;
+  --accent:#0b5f6b; --accent-ink:#ffffff; --accent-soft:#dcecee; --code-bg:#f5f7f9; --hl:#fff1b8;
+  --crit:#b42318; --crit-bg:#fde8e6; --high:#c2410c; --high-bg:#fdeee4; --med:#8a6100; --med-bg:#fbf1d6;
+  --low:#3b5f99; --low-bg:#e5edf8; --info:#5f6b78; --info-bg:#eceff2;
+  --f-display:'IBM Plex Sans Condensed','Arial Narrow','Segoe UI',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans','Segoe UI',system-ui,-apple-system,sans-serif;
+  --f-mono:'IBM Plex Mono',Consolas,'Cascadia Mono','Courier New',monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0d1318; --sheet:#141c23; --ink:#e2e9ef; --muted:#93a2b1; --line:#26313b; --line-strong:#364350;
+  --accent:#5cc0c9; --accent-ink:#06262a; --accent-soft:#163238; --code-bg:#0f171d; --hl:#4a3f10;
+  --crit:#ff8a7e; --crit-bg:#3a1512; --high:#ffa36b; --high-bg:#3a2010; --med:#e7c25a; --med-bg:#33290c;
+  --low:#8fb0e8; --low-bg:#17243a; --info:#9aa7b4; --info-bg:#1d262e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0d1318; --sheet:#141c23; --ink:#e2e9ef; --muted:#93a2b1; --line:#26313b; --line-strong:#364350;
+  --accent:#5cc0c9; --accent-ink:#06262a; --accent-soft:#163238; --code-bg:#0f171d; --hl:#4a3f10;
+  --crit:#ff8a7e; --crit-bg:#3a1512; --high:#ffa36b; --high-bg:#3a2010; --med:#e7c25a; --med-bg:#33290c;
+  --low:#8fb0e8; --low-bg:#17243a; --info:#9aa7b4; --info-bg:#1d262e; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5}
+.wrap{max-width:1260px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px;display:grid;gap:20px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:.005em}
+h1{font-size:2.1rem;font-weight:700;line-height:1.05}
+h2{font-size:1.3rem;font-weight:600}
+h3{font-size:1rem;font-weight:600}
+p{margin:0}
+code,pre,.mono{font-family:var(--f-mono)}
+.eyebrow{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.12em;font-size:.72rem;font-weight:600;color:var(--accent)}
+.muted{color:var(--muted)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;flex-wrap:wrap;gap:16px 32px;align-items:flex-end;justify-content:space-between}
+.brand{display:grid;gap:6px;max-width:64ch;min-width:0}
+.lede{color:var(--muted);max-width:62ch}
+.export{display:flex;flex-wrap:wrap;gap:8px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--line-strong);background:var(--sheet);border-radius:4px;cursor:pointer;font-weight:500;font-size:.9rem;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.intake{border:1.5px dashed var(--line-strong);background:var(--sheet);padding:18px 20px;display:flex;flex-wrap:wrap;gap:14px 24px;align-items:center;justify-content:space-between;border-radius:6px;transition:border-color .15s,background .15s}
+.intake.over{border-color:var(--accent);background:var(--accent-soft)}
+.intake-copy{display:grid;gap:2px;min-width:0}
+.intake-copy strong{font-family:var(--f-display);font-size:1.1rem;font-weight:600}
+.intake-copy span{color:var(--muted);font-size:.85rem}
+.intake-actions{display:flex;flex-wrap:wrap;gap:8px}
+.progress{width:100%;font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+.progress .bar{height:3px;background:var(--line);margin-top:6px}
+.progress .bar i{display:block;height:100%;background:var(--accent);width:0}
+
+.notice{font-size:.85rem;padding:8px 12px;background:var(--accent-soft);border-radius:4px;color:var(--ink)}
+.notice b{font-weight:600}
+
+/* Summary */
+.summary{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr);background:var(--sheet);border:1px solid var(--line);border-radius:6px}
+.summary>div{padding:20px 22px;min-width:0}
+.summary>div+div{border-left:1px solid var(--line)}
+.verdict .word{font-family:var(--f-display);font-weight:700;font-size:2.6rem;line-height:1;margin-top:6px}
+.verdict .score{font-family:var(--f-mono);font-size:.85rem;color:var(--muted);margin-left:8px;font-weight:400}
+.v-low .word{color:var(--accent)} .v-moderate .word{color:var(--med)} .v-elevated .word{color:var(--high)} .v-high .word{color:var(--crit)}
+.scale{position:relative;margin-top:16px;height:10px;display:flex}
+.scale span{height:100%}
+.scale .s1{width:10%;background:var(--accent-soft)} .scale .s2{width:20%;background:var(--med-bg)} .scale .s3{width:30%;background:var(--high-bg)} .scale .s4{width:40%;background:var(--crit-bg)}
+.scale .marker{position:absolute;top:-5px;width:3px;height:20px;background:var(--ink);transform:translateX(-1px)}
+.ticks{position:relative;height:16px;font-family:var(--f-mono);font-size:.68rem;color:var(--muted);margin-top:3px}
+.ticks span{position:absolute;transform:translateX(-50%)}
+.ticks span:first-child{transform:none} .ticks span:last-child{transform:translateX(-100%)}
+.verdict p{margin-top:10px;font-size:.9rem;max-width:56ch}
+.sevs{display:grid;gap:6px;align-content:start}
+.sevrow{display:grid;grid-template-columns:78px 36px 1fr;gap:10px;align-items:center;background:none;border:0;padding:3px 0;cursor:pointer;text-align:left}
+.sevrow:hover .sevname{text-decoration:underline}
+.sevrow .n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;font-weight:500}
+.sevrow .track{height:6px;background:var(--line)}
+.sevrow .track i{display:block;height:100%}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;align-content:start;margin:0}
+.stats div{display:grid;gap:0}
+.stats dt{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--f-display);font-weight:600}
+.stats dd{margin:0;font-family:var(--f-mono);font-size:1.35rem;font-variant-numeric:tabular-nums;font-weight:500}
+
+.pill{display:inline-block;font-family:var(--f-display);font-weight:600;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:3px;white-space:nowrap;text-align:center}
+.sev-critical{color:var(--crit);background:var(--crit-bg)} .sev-high{color:var(--high);background:var(--high-bg)}
+.sev-medium{color:var(--med);background:var(--med-bg)} .sev-low{color:var(--low);background:var(--low-bg)} .sev-info{color:var(--info);background:var(--info-bg)}
+.fill-critical{background:var(--crit)} .fill-high{background:var(--high)} .fill-medium{background:var(--med)} .fill-low{background:var(--low)} .fill-info{background:var(--info)}
+
+/* Tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line-strong);overflow-x:auto}
+.tab{background:none;border:0;padding:10px 16px;cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:.98rem;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab .c{font-family:var(--f-mono);font-weight:400;font-size:.8rem;margin-left:6px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.panel{display:grid;gap:16px;min-width:0}
+.panel-head{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;justify-content:space-between}
+.panel-head p{color:var(--muted)}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line-strong);background:var(--sheet);padding:4px 10px;border-radius:999px;cursor:pointer;font-size:.82rem}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip .c{font-family:var(--f-mono);opacity:.75;margin-left:4px}
+
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:6px;min-width:0}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+th{font-family:var(--f-display);font-weight:600;text-transform:uppercase;letter-spacing:.07em;font-size:.7rem;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line-strong);white-space:nowrap;position:sticky;top:0;background:var(--sheet)}
+td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+td code{font-size:.8rem;word-break:break-all}
+.method{font-family:var(--f-mono);font-size:.76rem;font-weight:500;padding:1px 6px;border:1px solid var(--line-strong);border-radius:3px;white-space:nowrap}
+.method.write{color:var(--high);border-color:currentColor}
+.tgt{white-space:nowrap}
+.loc{font-family:var(--f-mono);font-size:.78rem;color:var(--accent);background:none;border:0;padding:0;cursor:pointer;text-align:left;word-break:break-all}
+.loc:hover{text-decoration:underline}
+.loc-static{font-size:.78rem;color:var(--muted);word-break:break-all}
+.skiplist{min-width:520px}
+.api-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,360px);gap:16px;align-items:start}
+.sub{padding:14px 16px 6px;display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.empty{padding:28px 18px;color:var(--muted);text-align:center}
+.tbl-api{min-width:720px}
+.tbl-res{min-width:640px}
+.tbl-files{min-width:700px}
+.more{padding:10px 16px;font-size:.82rem;color:var(--muted)}
+
+.res-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.cap{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;padding:12px 16px;border-top:1px solid var(--line);align-items:baseline}
+.cap:first-of-type{border-top:0}
+.cap h3{font-size:.95rem}
+.cap .uses{font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+.cap .locs{grid-column:2/4;display:flex;flex-wrap:wrap;gap:4px 12px}
+.cap .adv{grid-column:2/4;font-size:.82rem;color:var(--muted)}
+
+/* Findings */
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.filters select,.filters input{font:inherit;font-size:.86rem;padding:6px 10px;border:1px solid var(--line-strong);background:var(--sheet);color:var(--ink);border-radius:4px;min-width:0;max-width:100%}
+.filters input{flex:1 1 200px}
+.sevtoggles{display:flex;flex-wrap:wrap;gap:4px}
+.sevtoggle{border:1px solid transparent;cursor:pointer;opacity:.4}
+.sevtoggle[aria-pressed="true"]{opacity:1;border-color:currentColor}
+.flist{display:grid}
+.fnd{display:grid;grid-template-columns:86px minmax(0,1fr);gap:14px;padding:14px 16px;border-top:1px solid var(--line)}
+.fnd:first-child{border-top:0}
+.fnd .pill{align-self:start}
+.fbody{display:grid;gap:6px;min-width:0}
+.fhead{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.fhead h3{font-size:1rem}
+.cat{font-size:.78rem;color:var(--muted)}
+.tag{font-size:.7rem;font-family:var(--f-mono);color:var(--muted);border:1px dashed var(--line-strong);padding:0 5px;border-radius:3px}
+.snip{margin:0;background:var(--code-bg);border:1px solid var(--line);padding:8px 10px;overflow-x:auto;font-size:.8rem;line-height:1.45;border-radius:3px;white-space:pre}
+.snip mark{background:var(--hl);color:inherit;padding:0 1px}
+.detail{font-family:var(--f-mono);font-size:.8rem;word-break:break-all}
+.adv{font-size:.86rem;color:var(--muted);max-width:90ch}
+
+.method-note{font-size:.84rem;color:var(--muted);display:grid;gap:6px;max-width:90ch;border-top:1px solid var(--line);padding-top:18px}
+.method-note strong{color:var(--ink);font-family:var(--f-display);font-weight:600}
+
+/* Code viewer */
+.viewer{position:fixed;inset:0 0 0 auto;width:min(760px,100%);background:var(--sheet);border-left:1px solid var(--line-strong);z-index:50;display:flex;flex-direction:column;box-shadow:-12px 0 32px rgba(0,0,0,.18);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
+.viewer header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line)}
+.viewer header code{font-size:.82rem;word-break:break-all}
+.viewer .code{flex:1;overflow:auto;font-family:var(--f-mono);font-size:.8rem;line-height:1.5;background:var(--code-bg)}
+.viewer table{font-size:inherit;min-width:max-content}
+.viewer td{border:0;padding:0 12px 0 0;white-space:pre}
+.viewer td.ln{color:var(--muted);text-align:right;padding:0 12px;user-select:none;position:sticky;left:0;background:var(--code-bg);border-right:1px solid var(--line)}
+.viewer tr.on td{background:var(--hl)}
+.scrim{position:fixed;inset:0;background:rgba(10,16,22,.35);z-index:49}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:4px;font-size:.86rem;z-index:60;max-width:min(560px,calc(100% - 32px))}
+
+@media (max-width:980px){
+  .summary{grid-template-columns:1fr 1fr}
+  .summary .verdict{grid-column:1/-1}
+  .summary>div+div{border-left:0;border-top:1px solid var(--line)}
+  .summary .stats{border-left:1px solid var(--line)}
+  .api-grid,.res-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:560px){
+  h1{font-size:1.7rem}
+  .summary{grid-template-columns:1fr}
+  .summary .stats{border-left:0}
+  .fnd{grid-template-columns:1fr;gap:8px}
+  .fnd .pill{justify-self:start}
+  .verdict .word{font-size:2.1rem}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">Static code inspection</div>
+      <h1>Code Reach Audit</h1>
+      <p class="lede">Choose code files to see every API call, external resource, device or system feature and risky pattern they contain. Files are read inside this browser and never leave your computer.</p>
+    </div>
+    <div class="export">
+      <button class="btn" id="copy-csv" disabled>Copy CSV</button>
+      <button class="btn" id="dl-csv" disabled>Download CSV</button>
+      <button class="btn" id="dl-report" disabled>Download report</button>
+    </div>
+  </header>
+
+  <section class="intake" id="drop" aria-label="Choose files to scan">
+    <div class="intake-copy">
+      <strong>Drop files, a folder or a ZIP here</strong>
+      <span>ZIP archives, plus JS, TS, HTML, ASPX, CSS, Python, PowerShell, C#, Java, PHP, SQL, VBA, shell, JSON, XML and TXT files</span>
+    </div>
+    <div class="intake-actions">
+      <label class="btn primary" for="pick-files" tabindex="0">Choose files</label>
+      <input type="file" id="pick-files" multiple hidden>
+      <label class="btn" for="pick-folder" tabindex="0">Choose folder</label>
+      <input type="file" id="pick-folder" webkitdirectory multiple hidden>
+      <button class="btn ghost" id="load-sample">Load sample</button>
+    </div>
+    <div class="progress" id="progress" hidden></div>
+  </section>
+
+  <div class="notice" id="notice"></div>
+
+  <section class="summary" id="summary" aria-live="polite"></section>
+
+  <nav class="tabs" role="tablist" aria-label="Report sections">
+    <button class="tab" role="tab" id="tab-api" data-tab="api" aria-selected="true">API calls<span class="c" id="c-api"></span></button>
+    <button class="tab" role="tab" id="tab-res" data-tab="res" aria-selected="false">Resources accessed<span class="c" id="c-res"></span></button>
+    <button class="tab" role="tab" id="tab-find" data-tab="find" aria-selected="false">Findings<span class="c" id="c-find"></span></button>
+    <button class="tab" role="tab" id="tab-files" data-tab="files" aria-selected="false">Files<span class="c" id="c-files"></span></button>
+  </nav>
+
+  <section class="panel" id="panel-api" role="tabpanel"></section>
+  <section class="panel" id="panel-res" role="tabpanel" hidden></section>
+  <section class="panel" id="panel-find" role="tabpanel" hidden>
+    <div class="panel-head"><h2>Security findings</h2><p id="find-sub"></p></div>
+    <div class="filters">
+      <div class="sevtoggles" id="sev-toggles"></div>
+      <select id="f-cat" aria-label="Category"></select>
+      <select id="f-file" aria-label="File"></select>
+      <input type="search" id="f-q" placeholder="Search title, code or file" aria-label="Search findings">
+    </div>
+    <div class="sheet"><div class="flist" id="flist"></div><div id="fmore"></div></div>
+  </section>
+  <section class="panel" id="panel-files" role="tabpanel" hidden></section>
+
+  <footer class="method-note">
+    <strong>How the scan works</strong>
+    <p>The page reads each file as text and matches it against <span id="rule-count"></span> rules covering network calls, loaded resources, storage and device access, code execution, secrets, transport security, file system and OS access, cross-window messaging and obfuscation. It never runs the code.</p>
+    <p>Addresses built from variables are resolved when the variable is assigned a plain string in the same file; otherwise they show as <code>{name}</code>. Minified, obfuscated or runtime-generated code can hide calls, so use this as a first-pass review alongside a code review, not as a penetration test. Secrets are masked on screen and in every export. Matches inside comments are kept but rated Info.</p>
+  </footer>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="viewer" id="viewer" hidden aria-label="Code view">
+  <header><code id="v-path"></code><button class="btn" id="v-close">Close</button></header>
+  <div class="code" id="v-code"></div>
+</aside>
+<div class="toast" id="toast" hidden></div>
+
+<textarea id="sample-1" data-name="sample/incident-dashboard.html" hidden><!doctype html>
+<html>
+<head>
+  <title>HSEQ Incident Dashboard</title>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="http://cdn.example-analytics.net/track.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto">
+  <link rel="stylesheet" href="styles/dashboard.css">
+</head>
+<body>
+<div id="list"></div>
+<iframe src="https://reports.example-bi.com/embed/42"></iframe>
+<script>
+const siteUrl = "https://intranet.contoso.local/sites/hseq";
+const FLOW_URL = "https://prod-27.westeurope.logic.azure.com:443/workflows/8f2c11/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Xk3vQ9dLmP2rT7wZ1aB4cD6eF8gH0jK";
+const apiKey = "demo_9f3Kq2LxV7pR4tW8yZ1n";
+
+async function loadItems() {
+  const res = await fetch(siteUrl + "/_api/web/lists/getbytitle('Incidents')/items?$top=500", {
+    headers: { Accept: "application/json;odata=verbose" },
+    credentials: "include"
+  });
+  const data = await res.json();
+  document.getElementById("list").innerHTML = data.d.results.map(r => "<li>" + r.Title + "</li>").join("");
+  localStorage.setItem("incidents", JSON.stringify(data.d.results));
+}
+
+function saveComment(id, text) {
+  return fetch(`${siteUrl}/_api/web/lists/getbytitle('Comments')/items`, {
+    method: "POST",
+    headers: { "X-RequestDigest": document.getElementById("__REQUESTDIGEST").value },
+    body: JSON.stringify({ Title: text, IncidentId: id })
+  });
+}
+
+function notifyFlow(payload) {
+  $.ajax({ url: FLOW_URL, type: "POST", data: JSON.stringify(payload), contentType: "application/json" });
+}
+
+function runRule(expr) { return eval(expr); }
+
+// fetch("https://old-server.contoso.local/api/legacy")
+window.addEventListener("message", e => { applySettings(e.data); });
+parent.postMessage({ ready: true }, "*");
+navigator.sendBeacon("https://stats.example-analytics.net/collect", JSON.stringify({ page: location.href }));
+navigator.clipboard.writeText(location.href);
+</script>
+</body>
+</html></textarea>
+<textarea id="sample-2" data-name="sample/export_to_sharepoint.py" hidden>import os
+import requests
+import pickle
+import subprocess
+
+SITE = "https://intranet.contoso.local/sites/hseq"
+GRAPH = "https://graph.microsoft.com/v1.0/sites/root/lists"
+password = "Winter2026!"
+
+def upload(path):
+    with open(path, "rb") as f:
+        r = requests.post(SITE + "/_api/web/GetFolderByServerRelativeUrl('Shared Documents')/Files/add(url='report.csv',overwrite=true)", data=f, verify=False)
+    return r.status_code
+
+def lists(token):
+    return requests.get(GRAPH, headers={"Authorization": "Bearer " + token}).json()
+
+def weather():
+    return requests.get("http://api.example-weather.com/v1/doha").json()
+
+def load_cache():
+    return pickle.loads(open("cache.bin", "rb").read())
+
+def run_report(name):
+    subprocess.run("python build.py " + name, shell=True)
+    cur.execute("SELECT * FROM incidents WHERE owner = '" + name + "'")
+
+os.system("robocopy C:\\exports \\\\fileserver\\hseq /E")
+token = os.environ.get("SP_TOKEN")
+</textarea>
+
+<script>
+(function(){
+'use strict';
+/* ---------- basics ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SEV = ['critical','high','medium','low','info'];
+const SEV_LABEL = {critical:'Critical',high:'High',medium:'Medium',low:'Low',info:'Info'};
+const SEV_W = {critical:25,high:10,medium:4,low:1,info:0};
+const CATS = {net:'Network & API calls',res:'External resources',store:'Storage & device access',exec:'Code execution & injection',secret:'Secrets & credentials',transport:'Transport & crypto',os:'File system & OS',msg:'Cross-window messaging',obf:'Obfuscation',archive:'Archive contents'};
+const EXT = {js:'js',mjs:'js',cjs:'js',jsx:'js',ts:'ts',tsx:'ts',html:'html',htm:'html',hta:'html',aspx:'html',ascx:'html',master:'html',cshtml:'html',vue:'html',svelte:'html',css:'css',scss:'css',less:'css',py:'py',ps1:'ps',psm1:'ps',psd1:'ps',cs:'cs',java:'java',kt:'java',php:'php',sql:'sql',sh:'sh',bash:'sh',zsh:'sh',bat:'sh',cmd:'sh',vb:'vb',vbs:'vb',bas:'vb',cls:'vb',frm:'vb',json:'data',xml:'data',config:'data',yml:'data',yaml:'data',ini:'data',env:'data',properties:'data',txt:'text',md:'text',csv:'text',go:'go',rb:'rb'};
+const LANG = {js:'JavaScript',ts:'TypeScript',html:'HTML / markup',css:'CSS',py:'Python',ps:'PowerShell',cs:'C#',java:'Java / Kotlin',php:'PHP',sql:'SQL',sh:'Shell / batch',vb:'VB / VBA',data:'Config / data',text:'Text',go:'Go',rb:'Ruby',other:'Other'};
+const SKIP_EXT = /\.(png|jpe?g|gif|bmp|ico|webp|svgz|tiff?|psd|ai|mp3|mp4|wav|avi|mov|webm|ogg|7z|rar|gz|tgz|tar|exe|dll|so|dylib|bin|msi|pdf|docx?|xlsx?|pptx?|woff2?|ttf|otf|eot|class|jar|pyc|pdb|lock)$/i;
+
+const WEB = ['js','ts','html'];
+const NOTWEB_ANY = null;
+
+/* ---------- argument parsing helpers ---------- */
+function scan(t, i, stopComma){
+  let d = 0, q = null; const lim = Math.min(t.length, i + 4000);
+  for (; i < lim; i++){
+    const c = t[i];
+    if (q){ if (c === '\\'){ i++; continue; } if (c === q) q = null; continue; }
+    if (c === '"' || c === "'" || c === '`'){ q = c; continue; }
+    if (c === '(' || c === '[' || c === '{') d++;
+    else if (c === ')' || c === ']' || c === '}'){ if (d === 0) return i; d--; }
+    else if (c === ',' && d === 0 && stopComma) return i;
+    else if (c === '\n' && d === 0 && stopComma === 'line') return i;
+  }
+  return i;
+}
+const short = s => { s = String(s).replace(/\s+/g,' ').trim(); return s.length > 40 ? s.slice(0,38) + '…' : s; };
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function lookupVar(t, name){
+  const id = String(name).replace(/^\$/,'').split('.').pop();
+  if (!/^[A-Za-z_$][\w$]*$/.test(id)) return null;
+  const re = new RegExp('(?:^|[^\\w.])\\$?' + escRe(id) + '["\']?\\s*[:=]\\s*(?:[fFrRbB]{0,2})(["\'`])([^"\'`\\n]{1,400})\\1', 'm');
+  const m = t.match(re);
+  return m ? m[2] : null;
+}
+function fillTpl(t, s, py){
+  let ok = true;
+  let v = s.replace(/\$\{\s*([^}]+?)\s*\}/g, (_, e) => { const r = /^[\w$.]+$/.test(e) ? lookupVar(t, e) : null; if (r != null) return r; ok = false; return '{' + short(e) + '}'; });
+  if (py) v = v.replace(/\{([A-Za-z_][\w.]*)\}/g, (_, e) => { const r = lookupVar(t, e); if (r != null) return r; ok = false; return '{' + e + '}'; });
+  return {v, ok};
+}
+function splitPlus(e){
+  const out = []; let d = 0, q = null, cur = '';
+  for (let i = 0; i < e.length; i++){
+    const c = e[i];
+    if (q){ cur += c; if (c === '\\'){ cur += e[++i] || ''; continue; } if (c === q) q = null; continue; }
+    if (c === '"' || c === "'" || c === '`'){ q = c; cur += c; continue; }
+    if ('([{'.includes(c)) d++; else if (')]}'.includes(c)) d--;
+    if (c === '+' && d === 0){ out.push(cur); cur = ''; continue; }
+    cur += c;
+  }
+  out.push(cur); return out;
+}
+function resolveExpr(t, expr){
+  expr = String(expr || '').trim();
+  if (!expr) return {endpoint:'', literal:false};
+  let literal = true;
+  const parts = splitPlus(expr).map(p => {
+    p = p.trim();
+    const pm = p.match(/^([fFrRbBuU]{0,2})(["'`])([\s\S]*)\2$/);
+    if (pm){ const r = fillTpl(t, pm[3], /f/i.test(pm[1])); if (!r.ok) literal = false; return r.v; }
+    if (/^[\w$.]+$/.test(p)){ const v = lookupVar(t, p); if (v != null) return v; }
+    literal = false; return '{' + short(p) + '}';
+  });
+  return {endpoint: parts.join(''), literal};
+}
+function argAt(t, pos){ const end = scan(t, pos, true); return resolveExpr(t, t.slice(pos, end)); }
+function callWin(t, pos){ return t.slice(pos, scan(t, pos, false)); }
+function optUrl(t, pos){
+  const w = callWin(t, pos);
+  const u = w.match(/\burl\s*:\s*/);
+  return u ? argAt(t, pos + u.index + u[0].length) : {endpoint:'{options object}', literal:false};
+}
+
+/* ---------- endpoint extractors ---------- */
+const X = {
+  fetch(t, m){ const p = m.index + m[0].length; const a = argAt(t, p); const w = callWin(t, p); const mm = w.match(/\bmethod\s*:\s*['"`](\w+)/i); return Object.assign({method:(mm ? mm[1] : 'GET').toUpperCase()}, a); },
+  xhr(t, m){ return Object.assign({method:m[2].toUpperCase()}, argAt(t, m.index + m[0].length)); },
+  jq(t, m){
+    const fn = m[1], p = m.index + m[0].length;
+    const isObj = /^\s*\{/.test(t.slice(p, p + 20));
+    const a = isObj ? optUrl(t, p) : argAt(t, p);
+    const w = callWin(t, p);
+    let method = 'GET';
+    if (fn === 'post') method = 'POST';
+    else if (fn === 'ajax'){ const mm = w.match(/\b(?:type|method)\s*:\s*['"](\w+)/i); method = (mm ? mm[1] : 'GET').toUpperCase(); }
+    else if (fn === 'getScript') method = 'GET script';
+    return Object.assign({method}, a);
+  },
+  axios(t, m){
+    const fn = m[1], p = m.index + m[0].length;
+    const isObj = /^\s*\{/.test(t.slice(p, p + 20));
+    const a = isObj ? optUrl(t, p) : argAt(t, p);
+    let method = fn && fn !== 'request' ? fn.toUpperCase() : null;
+    if (!method){ const mm = callWin(t, p).match(/\bmethod\s*:\s*['"](\w+)/i); method = (mm ? mm[1] : 'GET').toUpperCase(); }
+    return Object.assign({method}, a);
+  },
+  beacon(t, m){ return Object.assign({method:'POST beacon'}, argAt(t, m.index + m[0].length)); },
+  ws(t, m){ return Object.assign({method: m[1] === 'WebSocket' ? 'WebSocket' : 'Event stream'}, argAt(t, m.index + m[0].length)); },
+  spfx(t, m){ return Object.assign({method: m[2].toLowerCase() === 'fetch' ? 'FETCH' : m[2].toUpperCase()}, argAt(t, m.index + m[0].length)); },
+  graphsdk(t, m){
+    const p = m.index + m[0].length; const a = argAt(t, p);
+    const after = t.slice(scan(t, p, false), scan(t, p, false) + 300);
+    const mm = after.match(/^\)\s*(?:\.\s*\w+\s*\([^)]*\)\s*)*\.\s*(get|post|patch|put|delete|update)\s*\(/i);
+    if (a.endpoint && a.endpoint[0] === '/') a.endpoint = 'https://graph.microsoft.com' + a.endpoint;
+    return Object.assign({method:(mm ? mm[1] : 'GET').toUpperCase(), forced:'Microsoft Graph'}, a);
+  },
+  pnp(){ return {method:'PnPjs', endpoint:'SharePoint REST via PnPjs', literal:true, forced:'SharePoint REST'}; },
+  pyreq(t, m){ return Object.assign({method: m[2] === 'request' ? 'REQUEST' : m[2].toUpperCase()}, argAt(t, m.index + m[0].length)); },
+  arg0(t, m){ return Object.assign({method:'GET'}, argAt(t, m.index + m[0].length)); },
+  nodehttp(t, m){ return Object.assign({method: m[1] === 'get' ? 'GET' : 'REQUEST'}, argAt(t, m.index + m[0].length)); },
+  ps(t, m){
+    const line = m[0];
+    let uri = (line.match(/-Uri\s+(['"]?)([^\s'"]+)\1/i) || [])[2] || (line.match(/^\S+\s+(['"]?)([^\s'"-][^\s'"]*)\1/) || [])[2] || '';
+    let literal = true;
+    if (uri.startsWith('$')){ const v = lookupVar(t, uri.slice(1)); if (v != null) uri = v; else { uri = '{' + uri + '}'; literal = false; } }
+    const mm = line.match(/-Method\s+['"]?(\w+)/i);
+    return {method:(mm ? mm[1] : 'GET').toUpperCase(), endpoint:uri, literal};
+  },
+  webclient(t, m){ return Object.assign({method: /^Upload/.test(m[1]) ? 'POST' : 'GET'}, argAt(t, m.index + m[0].length)); },
+  cshttp(t, m){ const n = m[1]; const method = /^Get/.test(n) ? 'GET' : /^Post/.test(n) ? 'POST' : /^Put/.test(n) ? 'PUT' : /^Delete/.test(n) ? 'DELETE' : /^Patch/.test(n) ? 'PATCH' : 'SEND'; return Object.assign({method}, argAt(t, m.index + m[0].length)); },
+  curl(t, m){
+    const line = m[0];
+    const u = (line.match(/(https?:\/\/[^\s'"]+)/) || [])[1] || (line.match(/\s(\$\w+|%\w+%)/) || [])[1] || '';
+    const mm = line.match(/(?:-X|--request)\s+(\w+)/);
+    const post = /\s(-d|--data|-F|--form|--data-raw)\s/.test(line);
+    return {method: mm ? mm[1].toUpperCase() : (post ? 'POST' : 'GET'), endpoint:u || '{dynamic}', literal: /^https?:/.test(u)};
+  },
+  form(t, m){
+    const a = m[0].match(/\baction\s*=\s*["']([^"']*)["']/i);
+    if (!a || !a[1] || a[1] === '#') return false;
+    const mm = m[0].match(/\bmethod\s*=\s*["']?(\w+)/i);
+    return {method:(mm ? mm[1] : 'GET').toUpperCase() + ' form', endpoint:a[1], literal:true};
+  },
+  vba(t, m){ return Object.assign({method:m[1].toUpperCase()}, argAt(t, m.index + m[0].length)); }
+};
+
+const isLocalHost = h => /^(localhost|127\.|0\.0\.0\.0|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) || /\.(local|lan|corp|internal|intranet|localdomain)$/.test(h);
+function hostOf(u){ const m = String(u).match(/^(?:https?|wss?):\/\/(?:[^@\/\s]*@)?([^\/:?#'"`\s]+)/i); return m ? m[1].toLowerCase() : ''; }
+function classify(ep, forced){
+  const s = String(ep || '').trim();
+  const host = hostOf(s);
+  if (forced) return {t:forced, h:host || (forced === 'SharePoint REST' ? 'same site' : '')};
+  if (!s) return {t:'Unknown', h:''};
+  if (/\/_api\/|\/_vti_bin\/|\/_layouts\/15\/\w+\.ashx/i.test(s)) return {t:'SharePoint REST', h:host || 'same site'};
+  if (/graph\.microsoft\.com/i.test(s)) return {t:'Microsoft Graph', h:host};
+  if (/logic\.azure\.com|api\.powerplatform\.com|flow\.microsoft\.com|powerautomate/i.test(s)) return {t:'Power Automate', h:host};
+  if (host) return isLocalHost(host) ? {t:'Intranet', h:host} : {t:'External', h:host};
+  if (s[0] === '{') return {t:'Dynamic', h:''};
+  return {t:'Same site', h:'same site'};
+}
+function apiSev(api, c){
+  if (/^(http|ws):\/\//i.test(api.endpoint) && c.t !== 'Intranet') return 'medium';
+  if (c.t === 'External' || c.t === 'Power Automate' || c.t === 'Dynamic') return 'low';
+  return 'info';
+}
+function originOf(v, type){
+  const h = hostOf(v.startsWith('//') ? 'https:' + v : v);
+  if (h) return isLocalHost(h) ? 'Intranet' : 'External';
+  if (type === 'Module') return /^[./]/.test(v) ? 'Local file' : 'Package';
+  return 'Same site';
+}
+function resSev(v, type){
+  if (type === 'Module') return 'info';
+  if (/^(http|ws):\/\//i.test(v) && !isLocalHost(hostOf(v))) return 'high';
+  if (/^(https?:)?\/\//i.test(v) && /Script|Frame/.test(type)) return 'low';
+  return 'info';
+}
+
+/* ---------- rules ---------- */
+const RULES = [];
+const r = o => RULES.push(o);
+const notPlaceholder = v => v && !/^(x{3,}|\*+|your|<|\{|\$\{|%|placeholder|changeme|change_me|example|dummy|null|undefined|none|true|false|password|secret|token|redacted|todo)/i.test(v) && !/\s/.test(v);
+
+// Network & API calls
+r({id:'fetch',cat:'net',title:'fetch() request',mech:'fetch()',re:/\bfetch\s*\(/g,langs:WEB,x:'fetch',advice:'Confirm this endpoint is expected and that responses are validated before they are used.'});
+r({id:'xhr',cat:'net',title:'XMLHttpRequest',mech:'XMLHttpRequest',re:/\.open\s*\(\s*(['"])(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|MERGE)\1\s*,/gi,langs:WEB,x:'xhr',advice:'Confirm this endpoint is expected and that responses are validated before they are used.'});
+r({id:'jq',cat:'net',title:'jQuery AJAX request',mech:'jQuery AJAX',re:/(?:\$|jQuery)\.(ajax|get|post|getJSON|getScript)\s*\(/g,langs:WEB,x:'jq',advice:'Confirm the endpoint. $.getScript runs whatever code the server returns.'});
+r({id:'axios',cat:'net',title:'axios request',mech:'axios',re:/\baxios(?:\.(get|post|put|delete|patch|head|request))?\s*\(/g,langs:WEB,x:'axios',advice:'Confirm this endpoint is expected.'});
+r({id:'beacon',cat:'net',title:'Background beacon (sendBeacon)',mech:'sendBeacon',re:/navigator\.sendBeacon\s*\(/g,langs:WEB,x:'beacon',advice:'Beacons send data silently, often for analytics. Check what is sent and where.'});
+r({id:'ws',cat:'net',title:'Persistent connection (WebSocket / EventSource)',mech:'WebSocket / SSE',re:/new\s+(WebSocket|EventSource)\s*\(/g,langs:WEB,x:'ws',advice:'Keeps a live channel open to a server. Confirm the server and that wss:// is used.'});
+r({id:'spfx',cat:'net',title:'SPFx HTTP client call',mech:'SPFx client',re:/\.(spHttpClient|httpClient|aadHttpClient)\s*\.\s*(get|post|fetch)\s*\(/g,langs:WEB,x:'spfx',advice:'Runs with the signed-in user\u2019s permissions. Confirm the endpoint and scope.'});
+r({id:'graphsdk',cat:'net',title:'Microsoft Graph SDK call',mech:'Graph SDK',re:/\.api\s*\(\s*(?=['"`])/g,langs:WEB,x:'graphsdk',advice:'Runs with the signed-in user\u2019s Graph permissions. Check the scopes the app requests.'});
+r({id:'pnp',cat:'net',title:'PnPjs SharePoint access',mech:'PnPjs',re:/\bspfi\s*\(|\bsp\.web\b/g,langs:WEB,x:'pnp',advice:'PnPjs calls SharePoint REST with the user\u2019s permissions.'});
+r({id:'py-req',cat:'net',title:'Python HTTP request',mech:'requests / httpx',re:/\b(requests|httpx|session)\.(get|post|put|delete|patch|head|request)\s*\(/g,langs:['py'],x:'pyreq',advice:'Confirm the endpoint, and keep certificate verification on.'});
+r({id:'py-urllib',cat:'net',title:'Python urllib request',mech:'urllib',re:/\burllib(?:\.request)?\.(?:urlopen|Request)\s*\(/g,langs:['py'],x:'arg0',advice:'Confirm the endpoint is expected.'});
+r({id:'ps-web',cat:'net',title:'PowerShell web request',mech:'Invoke-RestMethod',re:/\b(?:Invoke-RestMethod|Invoke-WebRequest|irm|iwr)\b[^\n]*/gi,langs:['ps'],x:'ps',advice:'Confirm the endpoint and how credentials are supplied.'});
+r({id:'webclient',cat:'net',title:'WebClient download / upload',mech:'WebClient',re:/\.(DownloadString|DownloadFile|DownloadData|UploadString|UploadData|OpenRead)\s*\(/g,langs:['ps','cs','vb'],x:'webclient',advice:'Downloading and then running content is a common malware pattern. Confirm the source.'});
+r({id:'cs-http',cat:'net',title:'.NET HttpClient call',mech:'HttpClient',re:/\.(GetAsync|PostAsync|PutAsync|DeleteAsync|PatchAsync|SendAsync|GetStringAsync|GetByteArrayAsync|GetStreamAsync)\s*\(/g,langs:['cs'],x:'cshttp',advice:'Confirm the endpoint is expected.'});
+r({id:'curl',cat:'net',title:'curl / wget command',mech:'curl / wget',re:/\b(?:curl|wget)\s+[^\n]+/g,langs:['sh','ps'],x:'curl',advice:'Confirm the endpoint, and never pipe downloads straight into a shell.'});
+r({id:'node-http',cat:'net',title:'Node.js HTTP request',mech:'Node http(s)',re:/\bhttps?\.(get|request)\s*\(/g,langs:['js','ts'],x:'nodehttp',advice:'Confirm the endpoint is expected.'});
+r({id:'java-url',cat:'net',title:'Java URL / HTTP request',mech:'Java URL',re:/(?:new\s+URL|URI\.create)\s*\(/g,langs:['java'],x:'arg0',advice:'Confirm the endpoint is expected.'});
+r({id:'php-net',cat:'net',title:'PHP remote request',mech:'PHP request',re:/\b(?:curl_init|file_get_contents|fopen)\s*\(\s*(?=['"]https?:)/g,langs:['php'],x:'arg0',advice:'Confirm the endpoint is expected.'});
+r({id:'vba-http',cat:'net',title:'VBA HTTP request',mech:'MSXML / WinHttp',re:/\.Open\s+"(GET|POST|PUT|DELETE|PATCH)"\s*,\s*/gi,langs:['vb'],x:'vba',advice:'Confirm the endpoint is expected.'});
+r({id:'form',cat:'net',title:'Form submission target',mech:'HTML form',re:/<form\b[^>]*>/gi,langs:['html'],x:'form',advice:'Data typed into this form is sent to this address.'});
+r({id:'digest',cat:'net',sev:'info',title:'SharePoint write request (request digest)',re:/X-RequestDigest/gi,langs:WEB,advice:'This code writes to SharePoint. Check which lists or libraries it changes.'});
+
+// External resources
+r({id:'script-src',cat:'res',re:/<script\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi,langs:['html'],res:'Script',advice:'A loaded script runs with full access to the page and the user\u2019s session. Prefer self-hosted copies or add an integrity hash.'});
+r({id:'link-href',cat:'res',re:/<link\b[^>]*?\bhref\s*=\s*["']([^"']+)["'][^>]*>/gi,langs:['html'],res:m => /stylesheet/i.test(m[0]) ? 'Stylesheet' : /icon/i.test(m[0]) ? 'Icon' : /preload|prefetch|preconnect|dns-prefetch/i.test(m[0]) ? 'Preload / hint' : 'Linked file',advice:'Loaded from this address when the page opens.'});
+r({id:'media-src',cat:'res',re:/<(?:img|source|video|audio|track)\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi,langs:['html'],res:'Image / media',advice:'Loaded from this address. External images reveal the viewer\u2019s IP address to that site.'});
+r({id:'frame-src',cat:'res',re:/<(?:iframe|frame|embed|object)\b[^>]*?\b(?:src|data)\s*=\s*["']([^"']+)["']/gi,langs:['html'],res:'Frame / embed',advice:'Embeds another site inside this page. Add a sandbox attribute where possible.'});
+r({id:'css-import',cat:'res',re:/@import\s+(?:url\()?\s*["']?([^"')\s;]+)/gi,langs:['css','html'],res:'Stylesheet',advice:'Stylesheet loaded from this address.'});
+r({id:'css-url',cat:'res',re:/url\(\s*["']?((?:https?:)?\/\/[^"')\s]+)/gi,langs:['css','html'],res:'Font / image (CSS)',advice:'Loaded from this address when the style applies.'});
+r({id:'dyn-import',cat:'res',re:/\b(?:import|importScripts)\s*\(\s*["'`]([^"'`]+)/g,langs:WEB,res:'Script (dynamic)',advice:'Code loaded at runtime. Confirm the source.'});
+r({id:'es-import',cat:'res',re:/^\s*import\s+(?:[\w*{}\s,$]+\s+from\s+)?["']([^"']+)["']/gm,langs:['js','ts','html'],res:'Module',advice:'Dependency included in the build. Check it is maintained and from a trusted publisher.'});
+r({id:'require',cat:'res',re:/\brequire\s*\(\s*["']([^"']+)["']\s*\)/g,langs:['js','ts'],res:'Module',advice:'Dependency loaded by the code. Check it is trusted.'});
+r({id:'py-import',cat:'res',re:/^[ \t]*(?:from\s+([\w.]+)\s+import\b|import\s+([\w.]+))/gm,langs:['py'],g:[1,2],res:'Module',advice:'Python package used by the code.'});
+r({id:'script-inject',cat:'res',sev:'medium',title:'Script element created at runtime',re:/createElement\s*\(\s*["']script["']\s*\)/g,langs:WEB,advice:'This loads code that does not appear in these files. Check where its src comes from.'});
+
+// Storage & device access
+r({id:'localstorage',cat:'store',sev:'low',title:'Local storage used',cap:'Local storage',re:/\blocalStorage\b/g,langs:WEB,advice:'Data stays in the browser unencrypted and readable by any script on the site. Do not store personal or sensitive data here.'});
+r({id:'sessionstorage',cat:'store',sev:'info',title:'Session storage used',cap:'Session storage',re:/\bsessionStorage\b/g,langs:WEB,advice:'Cleared when the tab closes, but readable by any script on the page.'});
+r({id:'indexeddb',cat:'store',sev:'info',title:'IndexedDB used',cap:'IndexedDB database',re:/\bindexedDB\b/g,langs:WEB,advice:'Stores structured data in the browser.'});
+r({id:'cookie',cat:'store',sev:'low',title:'Cookies read or written',cap:'Cookies',re:/\bdocument\.cookie\b/g,langs:WEB,advice:'Cookies set from script cannot be HttpOnly. Never keep session tokens here.'});
+r({id:'cache-api',cat:'store',sev:'info',title:'Cache storage used',cap:'Cache storage',re:/\bcaches\.(?:open|match)\s*\(/g,langs:WEB,advice:'Stores responses in the browser cache.'});
+r({id:'clipboard',cat:'store',sev:'info',title:'Clipboard access',cap:'Clipboard',re:/navigator\.clipboard|execCommand\s*\(\s*['"](?:copy|cut|paste)['"]/g,langs:WEB,advice:'Reads or writes the user\u2019s clipboard.'});
+r({id:'geo',cat:'store',sev:'medium',title:'Location requested',cap:'Location',re:/navigator\.geolocation/g,langs:WEB,advice:'Collects the user\u2019s physical location. Make sure this is needed and disclosed.'});
+r({id:'media',cat:'store',sev:'medium',title:'Camera, microphone or screen capture',cap:'Camera / microphone / screen',re:/getUserMedia|getDisplayMedia/g,langs:WEB,advice:'Captures audio, video or the screen. Make sure this is needed and disclosed.'});
+r({id:'notify',cat:'store',sev:'info',title:'Desktop notifications',cap:'Notifications',re:/\bNotification\.requestPermission|new\s+Notification\s*\(/g,langs:WEB,advice:'Shows system notifications.'});
+r({id:'sw',cat:'store',sev:'low',title:'Service worker registered',cap:'Service worker',re:/serviceWorker\.register\s*\(/g,langs:WEB,advice:'A service worker can intercept every request the site makes, even after the page closes.'});
+r({id:'filepick',cat:'store',sev:'info',title:'Reads user-selected files',cap:'User-selected files',re:/\bnew\s+FileReader\b|showOpenFilePicker|showDirectoryPicker|type\s*=\s*["']file["']/g,langs:WEB,advice:'Reads files the user chooses.'});
+
+// Code execution & injection
+r({id:'eval',cat:'exec',sev:'high',title:'eval() runs text as code',re:/(?<![\w.$])eval\s*\(/g,langs:['js','ts','html','py','php'],advice:'Anything that reaches eval runs with full privileges. Replace with JSON.parse, a lookup table or explicit logic.'});
+r({id:'newfn',cat:'exec',sev:'high',title:'new Function() builds code from text',re:/\bnew\s+Function\s*\(/g,langs:WEB,advice:'Same risk as eval. Avoid building code from strings.'});
+r({id:'timer-str',cat:'exec',sev:'medium',title:'Timer runs a string as code',re:/\bset(?:Timeout|Interval)\s*\(\s*['"`]/g,langs:WEB,advice:'Pass a function instead of a string.'});
+r({id:'innerhtml',cat:'exec',sev:'medium',title:'HTML injected with innerHTML',re:/\.(?:inner|outer)HTML\s*\+?=(?!=)/g,langs:WEB,advice:'If any part comes from a list, URL or user input, it can run script (XSS). Use textContent, or escape values first.'});
+r({id:'adjacent',cat:'exec',sev:'medium',title:'HTML injected with insertAdjacentHTML',re:/\.insertAdjacentHTML\s*\(/g,langs:WEB,advice:'Escape any data before inserting it as HTML.'});
+r({id:'docwrite',cat:'exec',sev:'medium',title:'document.write()',re:/\bdocument\.write(?:ln)?\s*\(/g,langs:WEB,advice:'Writes raw HTML into the page. Escape data or build elements instead.'});
+r({id:'dangerous',cat:'exec',sev:'medium',title:'React dangerouslySetInnerHTML',re:/dangerouslySetInnerHTML/g,langs:WEB,advice:'Sanitise the HTML before rendering it.'});
+r({id:'jqhtml',cat:'exec',sev:'low',title:'jQuery .html() with content',re:/\.html\s*\(\s*[^)\s]/g,langs:WEB,advice:'Escape any data passed to .html(), or use .text().'});
+r({id:'jsurl',cat:'exec',sev:'low',title:'javascript: link',re:/href\s*=\s*["']\s*javascript:/gi,langs:['html'],advice:'Use an event listener instead of a javascript: link.'});
+r({id:'py-exec',cat:'exec',sev:'high',title:'Python exec() runs text as code',re:/(?<![\w.])exec\s*\(/g,langs:['py'],advice:'Avoid running strings as code.'});
+r({id:'py-os',cat:'os',sev:'high',title:'Shell command run (os.system / popen)',cap:'Runs system commands',re:/\bos\.(?:system|popen|exec[lv]p?e?)\s*\(/g,langs:['py'],advice:'Runs a command on the machine. Never build it from user input.'});
+r({id:'py-shell',cat:'exec',sev:'high',title:'subprocess with shell=True',re:/subprocess\.\w+\([^)]*shell\s*=\s*True/g,langs:['py'],advice:'shell=True lets crafted input run extra commands. Pass an argument list instead.'});
+r({id:'py-sub',cat:'os',sev:'medium',title:'Program launched (subprocess)',cap:'Runs system commands',re:/\bsubprocess\.(?:run|call|Popen|check_output|check_call)\s*\(/g,langs:['py'],advice:'Starts another program. Confirm what it runs.'});
+r({id:'pickle',cat:'exec',sev:'high',title:'pickle loads untrusted data',re:/\bpickle\.loads?\s*\(/g,langs:['py'],advice:'Unpickling a crafted file runs code. Use JSON for data from outside.'});
+r({id:'yaml',cat:'exec',sev:'medium',title:'yaml.load without SafeLoader',re:/\byaml\.load\s*\((?![^)]*SafeLoader)/g,langs:['py'],advice:'Use yaml.safe_load.'});
+r({id:'node-cp',cat:'os',sev:'high',title:'Node child_process (runs commands)',cap:'Runs system commands',re:/\bchild_process\b|\b(?:execSync|spawnSync|execFile)\s*\(/g,langs:['js','ts'],advice:'Runs programs on the server. Never build commands from input.'});
+r({id:'ps-iex',cat:'exec',sev:'high',title:'Invoke-Expression runs text as code',re:/\b(?:Invoke-Expression|iex)\b/gi,langs:['ps'],advice:'Common in malicious scripts, especially with DownloadString. Avoid it.'});
+r({id:'ps-start',cat:'os',sev:'medium',title:'Program launched (Start-Process)',cap:'Runs system commands',re:/\bStart-Process\b/gi,langs:['ps'],advice:'Starts another program. Confirm what it runs.'});
+r({id:'php-exec',cat:'exec',sev:'high',title:'PHP shell command',re:/\b(?:system|shell_exec|passthru|proc_open|popen|exec)\s*\(/g,langs:['php'],advice:'Runs a command on the server. Never build it from request data.'});
+r({id:'cs-proc',cat:'os',sev:'high',title:'Process.Start launches a program',cap:'Runs system commands',re:/Process\.Start\s*\(/g,langs:['cs','vb'],advice:'Starts another program. Confirm what it runs.'});
+r({id:'vba-shell',cat:'os',sev:'high',title:'VBA shell / WScript',cap:'Runs system commands',re:/\bShell\s*\(|CreateObject\s*\(\s*"WScript\.Shell"\s*\)/gi,langs:['vb'],advice:'Runs commands from an Office macro, a common malware route.'});
+r({id:'sql-concat',cat:'exec',sev:'medium',title:'SQL built by joining strings',re:/\b(?:SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\b[^;\n]{0,160}?["'`]\s*(?:\+|\.|&)\s*[\w$]/gi,advice:'Values joined into SQL allow injection. Use parameterised queries.'});
+r({id:'sql-fstr',cat:'exec',sev:'medium',title:'SQL built with an f-string',re:/\bf["'](?:SELECT|INSERT|UPDATE|DELETE)\b[^"'\n]*\{/gi,langs:['py'],advice:'Use parameterised queries instead of f-strings.'});
+
+// Secrets & credentials
+r({id:'sig',cat:'secret',sev:'critical',title:'Signed trigger URL (Power Automate / Azure SAS)',re:/[?&]sig=[A-Za-z0-9%_\-]{16,}/g,advice:'Anyone with this URL can run the flow or reach the resource. Rotate the signature and stop shipping the URL to the browser; call the flow with authentication instead.'});
+r({id:'aws',cat:'secret',sev:'critical',title:'AWS access key',re:/\bAKIA[0-9A-Z]{16}\b/g,advice:'Rotate the key and load it from a secure store.'});
+r({id:'gkey',cat:'secret',sev:'high',title:'Google API key',re:/\bAIza[0-9A-Za-z\-_]{35}\b/g,advice:'Restrict the key by referrer and API, or move it server-side.'});
+r({id:'ghtok',cat:'secret',sev:'critical',title:'GitHub token',re:/\bgh[pousr]_[A-Za-z0-9]{36,}\b/g,advice:'Revoke the token now.'});
+r({id:'slack',cat:'secret',sev:'critical',title:'Slack token',re:/\bxox[baprs]-[A-Za-z0-9-]{10,}/g,advice:'Revoke the token now.'});
+r({id:'stripe',cat:'secret',sev:'critical',title:'Live payment key',re:/\b(?:sk|rk)_live_[0-9a-zA-Z]{20,}/g,advice:'Revoke the key now.'});
+r({id:'pkey',cat:'secret',sev:'critical',title:'Private key block',re:/-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----/g,advice:'Remove the key from code and replace it.'});
+r({id:'jwt',cat:'secret',sev:'high',title:'Embedded JSON Web Token',re:/\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,advice:'A hard-coded token grants access to whoever reads the file.'});
+r({id:'connstr',cat:'secret',sev:'high',title:'Connection string with credentials',re:/\b(?:AccountKey|SharedAccessKey|Password|Pwd)\s*=\s*[^;'"\s<]{6,}/gi,valid:m => notPlaceholder(m[0].split('=').slice(1).join('=').trim()),advice:'Move the connection string to a secure configuration store.'});
+r({id:'url-cred',cat:'secret',sev:'high',title:'Username and password in a URL',re:/\b(?:https?|ftp):\/\/[^\/\s:@'"]+:[^\/\s@'"]+@/gi,advice:'Credentials in URLs end up in logs and browser history.'});
+r({id:'bearer',cat:'secret',sev:'high',title:'Hard-coded bearer token',re:/\bBearer\s+[A-Za-z0-9\-._~+\/]{20,}=*/g,advice:'Fetch tokens at runtime instead of storing them.'});
+r({id:'generic',cat:'secret',sev:'high',title:'Hard-coded password or key',re:/\b(?:api[_-]?key|apikey|secret|client[_-]?secret|password|passwd|pwd|access[_-]?token|auth[_-]?token|private[_-]?key)\b["']?\s*[:=]\s*["'][^"'\s]{6,}["']/gi,valid:m => notPlaceholder((m[0].match(/["']([^"']+)["']\s*$/) || [])[1]),advice:'Anyone who can open the file can read this. Move it to a secure store and rotate it.'});
+r({id:'authhdr',cat:'secret',sev:'info',title:'Authorization header set',re:/["']Authorization["']\s*[:=,]/g,mask:false,advice:'Check the token comes from a secure sign-in flow, not from the code.'});
+
+// Transport & crypto
+r({id:'http-url',cat:'transport',sev:'medium',title:'Unencrypted http:// address',re:/\b(?:http|ws):\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0|(?:www\.)?w3\.org|schemas\.|purl\.org|ns\.adobe|xmlns\.com|www\.iana)[^\s"'`<>)\]]+/gi,valid:m => !isLocalHost(hostOf(m[0])),advice:'Traffic can be read or changed on the way. Use https://.'});
+r({id:'tls-off',cat:'transport',sev:'high',title:'Certificate checking turned off',re:/verify\s*=\s*False|rejectUnauthorized\s*:\s*false|NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['"]?0|ServerCertificateValidationCallback\s*\+?=|InsecureSkipVerify\s*:\s*true|-SkipCertificateCheck|\bcurl\b[^\n]*\s(?:-k|--insecure)\b/g,advice:'Lets anyone on the network impersonate the server. Turn verification back on.'});
+r({id:'weakhash',cat:'transport',sev:'low',title:'Weak hash (MD5 / SHA-1)',re:/createHash\s*\(\s*['"](?:md5|sha1)['"]|hashlib\.(?:md5|sha1)\b|\b(?:MD5|SHA1)\.Create\b|\b(?:md5|sha1)\s*\(/gi,advice:'Fine for checksums, not for passwords or signatures. Use SHA-256 or a password hash.'});
+r({id:'mathrandom',cat:'transport',sev:'info',title:'Math.random() used',re:/Math\.random\s*\(/g,langs:WEB,advice:'Fine for UI. For tokens or IDs use crypto.getRandomValues().'});
+r({id:'creds',cat:'transport',sev:'info',title:'Request sends cookies or credentials',re:/credentials\s*:\s*['"]include['"]|withCredentials\s*[:=]\s*true/g,langs:WEB,advice:'The user\u2019s session cookies go with this request. Confirm the destination is trusted.'});
+r({id:'cors',cat:'transport',sev:'medium',title:'CORS open to every site',re:/Access-Control-Allow-Origin["']?\s*[:,=]\s*["']?\*/gi,advice:'Any website can read these responses. Limit to known origins.'});
+
+// Cross-window messaging
+r({id:'pm-star',cat:'msg',sev:'medium',title:'postMessage to any origin ("*")',re:/\.postMessage\s*\([^;\n]*,\s*['"]\*['"]/g,langs:WEB,advice:'Any page that embeds or opens this one can read the message. Name the exact target origin.'});
+r({id:'onmessage',cat:'msg',sev:'medium',title:'Message listener without origin check',re:/addEventListener\s*\(\s*['"]message['"]/g,langs:WEB,ctx:(t,m) => !/\.origin\b/.test(t.slice(m.index, m.index + 600)),advice:'Any site can send this page messages. Check event.origin before acting on them.'});
+r({id:'winopen',cat:'msg',sev:'info',title:'Opens a new window',cap:'Opens windows / tabs',re:/\bwindow\.open\s*\(/g,langs:WEB,advice:'Opens another page. Pass "noopener" for untrusted sites.'});
+r({id:'opener',cat:'msg',sev:'low',title:'Uses window.opener',cap:'Opener window',re:/\bwindow\.opener\b/g,langs:WEB,advice:'Pages opened this way can redirect the original tab.'});
+
+// File system & OS
+r({id:'node-fs',cat:'os',sev:'low',title:'File system access (Node fs)',cap:'File system',re:/\bfs\.(?:readFile|readFileSync|writeFile|writeFileSync|appendFile|appendFileSync|unlink|unlinkSync|rm|rmSync|rmdir|readdir|readdirSync|createReadStream|createWriteStream|copyFile|rename)\b/g,langs:['js','ts'],advice:'Reads or writes files on the machine. Check paths cannot be controlled by input.'});
+r({id:'py-fs',cat:'os',sev:'low',title:'File system access (Python)',cap:'File system',re:/(?<![\w.])open\s*\(|\bshutil\.\w+\s*\(|\bos\.(?:remove|unlink|rmdir|makedirs|rename|listdir|walk)\s*\(/g,langs:['py'],advice:'Reads or writes files on the machine. Check paths cannot be controlled by input.'});
+r({id:'cs-fs',cat:'os',sev:'low',title:'File system access (.NET)',cap:'File system',re:/\b(?:File|Directory)\.(?:Read|Write|Append|Delete|Copy|Move|Create|Open|Exists|GetFiles|EnumerateFiles)\w*\s*\(/g,langs:['cs','vb'],advice:'Reads or writes files on the machine.'});
+r({id:'ps-fs',cat:'os',sev:'low',title:'File system access (PowerShell)',cap:'File system',re:/\b(?:Get-Content|Set-Content|Add-Content|Out-File|Remove-Item|Copy-Item|Move-Item|New-Item|Get-ChildItem)\b/gi,langs:['ps'],advice:'Reads or writes files. Check Remove-Item paths carefully.'});
+r({id:'activex',cat:'os',sev:'high',title:'ActiveX / FileSystemObject',cap:'File system',re:/new\s+ActiveXObject\s*\(|Scripting\.FileSystemObject/gi,advice:'Gives script direct access to local files and programs.'});
+r({id:'registry',cat:'os',sev:'medium',title:'Windows registry access',cap:'Windows registry',re:/\b(?:HKLM|HKCU|HKEY_[A-Z_]+|Registry\.(?:LocalMachine|CurrentUser)|winreg)\b/g,advice:'Reads or changes system settings.'});
+r({id:'env',cat:'os',sev:'info',title:'Environment variables read',cap:'Environment variables',re:/\bprocess\.env\b|\bos\.environ\b|\bos\.getenv\s*\(|\$env:\w+|Environment\.GetEnvironmentVariable/g,advice:'Reads machine or server settings, often secrets. That is the right place for them.'});
+
+// Obfuscation
+r({id:'b64fn',cat:'obf',sev:'low',title:'Base64 encode / decode',re:/\b(?:atob|btoa)\s*\(|base64\.b64decode\s*\(|FromBase64String/g,advice:'Often harmless; also used to hide URLs or code. Check what is decoded.'});
+r({id:'b64long',cat:'obf',sev:'medium',title:'Long encoded string',re:/["'`]([A-Za-z0-9+\/]{240,}={0,2})["'`]/g,advice:'Large encoded blobs can hide code or data. Decode and review it.'});
+r({id:'hexesc',cat:'obf',sev:'medium',title:'Hex-escaped string',re:/(?:\\x[0-9a-fA-F]{2}){12,}/g,advice:'Typical of obfuscated code. Decode and review it.'});
+r({id:'charcode',cat:'obf',sev:'medium',title:'String built from character codes',re:/String\.fromCharCode\s*\(\s*\d+(?:\s*,\s*\d+){8,}/g,advice:'Typical of obfuscated code. Decode and review it.'});
+
+/* ---------- state ---------- */
+let state = null, FID = 0;
+function fresh(){ return {files:[], findings:[], apis:[], resources:[], caps:new Map(), domains:new Map(), skipped:[], archives:[], sample:false}; }
+
+function lineStarts(t){ const a = [0]; for (let i = 0; i < t.length; i++) if (t.charCodeAt(i) === 10) a.push(i + 1); return a; }
+function lineOf(st, idx){ let lo = 0, hi = st.length - 1; while (lo < hi){ const m = (lo + hi + 1) >> 1; if (st[m] <= idx) lo = m; else hi = m - 1; } return lo; }
+function isComment(line, col, lang){
+  const t = line.trimStart();
+  if (t.startsWith('//') || t.startsWith('/*') || (t.startsWith('*') && !t.startsWith('*=')) || t.startsWith('<!--')) return true;
+  if (['py','sh','ps','rb'].includes(lang) && t.startsWith('#')) return true;
+  if (lang === 'vb' && (t.startsWith("'") || /^rem\s/i.test(t))) return true;
+  if (lang === 'sql' && t.startsWith('--')) return true;
+  if (lang !== 'py' && lang !== 'sh' && /(?:^|[\s;{}(,])\/\//.test(line.slice(0, col))) return true;
+  return false;
+}
+function pick(m, g){ if (Array.isArray(g)){ for (const i of g) if (m[i]) return m[i]; return ''; } return m[g || 1] || ''; }
+
+function scanFile(path, text){
+  const ext = (path.split('.').pop() || '').toLowerCase();
+  const lang = EXT[ext] || 'other';
+  const st = lineStarts(text);
+  const lines = text.split('\n');
+  const f = {path, lang, lines:lines.length, size:text.length, text, counts:{critical:0,high:0,medium:0,low:0,info:0}, apis:0};
+  const seen = new Set();
+  for (const rule of RULES){
+    if (!(lang === 'text' || lang === 'other' || !rule.langs || rule.langs.includes(lang))) continue;
+    rule.re.lastIndex = 0;
+    let m, n = 0;
+    while ((m = rule.re.exec(text))){
+      if (m[0].length === 0){ rule.re.lastIndex++; continue; }
+      if (++n > 400) break;
+      const lead = m[0].length - m[0].trimStart().length;
+      const idx = m.index + lead;
+      const li = lineOf(st, idx);
+      const key = (rule.x || rule.res) ? rule.id + '@' + idx : rule.id + ':' + li;
+      if (seen.has(key)) continue;
+      if (rule.valid && !rule.valid(m)) continue;
+      if (rule.ctx && rule.ctx(text, m) === false) continue;
+      const lineText = lines[li] || '';
+      const col = idx - st[li];
+      const inComment = isComment(lineText, col, lang);
+      let sev = rule.sev || 'info', title = rule.title, extra = null;
+      if (rule.x){
+        let api; try { api = X[rule.x](text, m); } catch (e) { api = null; }
+        if (api === false) continue;
+        if (api){ const c = classify(api.endpoint, api.forced); extra = {kind:'api', method:api.method, endpoint:api.endpoint || '{unknown}', literal:api.literal, target:c.t, host:c.h}; sev = apiSev(api, c); }
+      }
+      if (rule.res){
+        const val = pick(m, rule.g).trim();
+        if (!val || /^(data:|#|\{\{|about:|javascript:)/i.test(val)) continue;
+        const type = typeof rule.res === 'function' ? rule.res(m) : rule.res;
+        extra = {kind:'res', type, value:val, origin:originOf(val, type), host:hostOf(val.startsWith('//') ? 'https:' + val : val)};
+        sev = resSev(val, type);
+        title = type + ' loaded' + (extra.origin === 'External' ? ' from another site' : '');
+      }
+      seen.add(key);
+      if (inComment && rule.cat !== 'secret') sev = 'info';
+      const fd = {id:FID++, file:path, line:li + 1, col, rule:rule.id, cat:rule.cat, sev, title, advice:rule.advice, snippet:lineText, match:m[0].slice(lead), mask:rule.cat === 'secret' && rule.mask !== false, inComment, extra};
+      state.findings.push(fd); f.counts[sev]++;
+      if (!inComment){
+        if (extra && extra.kind === 'api'){ state.apis.push(Object.assign({}, extra, {file:path, line:li + 1, fid:fd.id, mech:rule.mech || rule.title, sev})); f.apis++; }
+        if (extra && extra.kind === 'res') state.resources.push(Object.assign({}, extra, {file:path, line:li + 1, fid:fd.id, sev}));
+        if (rule.cap){
+          const c = state.caps.get(rule.cap) || {name:rule.cap, sev:'info', advice:rule.advice, items:[]};
+          if (SEV.indexOf(sev) < SEV.indexOf(c.sev)) c.sev = sev;
+          c.items.push(fd); state.caps.set(rule.cap, c);
+        }
+      }
+    }
+  }
+  // Domain inventory
+  const URL_RE = /\b(?:https?|wss?):\/\/[^\s"'`<>)\]\\]+/gi; let um;
+  const NS = /(^|\.)(w3\.org|schemas\.microsoft\.com|schemas\.openxmlformats\.org|schemas\.xmlsoap\.org|purl\.org|ns\.adobe\.com|xmlns\.com|json-schema\.org|iana\.org)$/;
+  while ((um = URL_RE.exec(text))){
+    const h = hostOf(um[0]);
+    if (!h || /[{}$%]/.test(h) || NS.test(h) || !/\./.test(h) && h !== 'localhost') continue;
+    const d = state.domains.get(h) || {host:h, count:0, files:new Set(), insecure:false};
+    d.count++; d.files.add(path); if (/^(http|ws):/i.test(um[0])) d.insecure = true;
+    state.domains.set(h, d);
+  }
+  return f;
+}
+
+/* ---------- display helpers ---------- */
+const maskSig = s => String(s).replace(/([?&]sig=)[^&\s'"`]+/gi, '$1••••••');
+function maskSecret(s){
+  const q = s.match(/^([\s\S]*?["'])([^"']{4,})(["'][\s\S]*)$/);
+  const dots = n => '•'.repeat(Math.max(4, Math.min(12, n)));
+  if (q) return q[1] + q[2].slice(0, 3) + dots(q[2].length - 3) + q[3];
+  const k = Math.min(8, Math.floor(s.length / 3));
+  return s.slice(0, k) + dots(s.length - k);
+}
+function snippetHTML(fd){
+  let line = fd.snippet.replace(/\t/g, '  ');
+  let col = fd.col + (fd.snippet.slice(0, fd.col).match(/\t/g) || []).length;
+  let mt = fd.match.split('\n')[0];
+  let start = 0, end = line.length;
+  if (line.length > 200){ start = Math.max(0, col - 80); end = Math.min(line.length, col + Math.max(mt.length, 0) + 100); }
+  const pre = line.slice(start, col), hit = line.slice(col, col + mt.length), post = line.slice(col + mt.length, end);
+  let show = fd.mask ? maskSecret(hit) : hit;
+  const prefix = start > 0 ? '…' : '', suffix = end < line.length ? '…' : '';
+  const clean = s => esc(maskSig(fd.mask ? s.replace(/(["'])([^"']{12,})\1/g, (a, q, v) => q + v.slice(0, 3) + '••••••' + q) : s));
+  return prefix + clean(pre).trimStart() + '<mark>' + esc(maskSig(show)) + '</mark>' + clean(post) + suffix;
+}
+const pill = s => `<span class="pill sev-${s}">${SEV_LABEL[s]}</span>`;
+const locBtn = (file, line) => !line ? `<code class="loc-static">${esc(file)}</code>` : `<button class="loc" data-file="${esc(file)}" data-line="${line}">${esc(file)}:${line}</button>`;
+const fmtN = n => n.toLocaleString('en-US');
+const isWrite = m => /POST|PUT|PATCH|DELETE|MERGE/.test(m);
+
+/* ---------- render ---------- */
+let apiFilter = 'All';
+const F = {sev:new Set(['critical','high','medium','low']), cat:'', file:'', q:'', limit:300};
+
+function render(){
+  renderNotice(); renderSummary(); renderApi(); renderRes(); buildFindFilters(); renderFindings(); renderFiles();
+  const live = state.findings.filter(f => !f.inComment);
+  $('#c-api').textContent = state.apis.length;
+  $('#c-res').textContent = state.resources.length + state.caps.size;
+  $('#c-find').textContent = state.findings.length;
+  $('#c-files').textContent = state.files.length;
+  ['#copy-csv','#dl-csv','#dl-report'].forEach(s => $(s).disabled = !state.files.length);
+}
+function renderNotice(){
+  const n = $('#notice');
+  const parts = [];
+  if (!state.files.length && !state.skipped.length) parts.push('<b>No files scanned yet.</b> Choose files or a folder above, or select Load sample to see an example report.');
+  if (state.sample) parts.push('<b>Sample report.</b> These two example files show what a scan looks like. Choose your own files above to replace them.');
+  if (state.archives.length){ const ent = state.archives.reduce((a, z) => a + z.entries, 0); parts.push(`<b>Unpacked ${state.archives.length} ZIP archive${state.archives.length > 1 ? 's' : ''}</b> (${fmtN(ent)} entries).`); }
+  if (state.skipped.length) parts.push(`<b>Skipped ${fmtN(state.skipped.length)} file${state.skipped.length > 1 ? 's' : ''}:</b> ${esc(skipSummary())}. The Files tab lists them.`);
+  n.innerHTML = parts.join(' ');
+  n.hidden = !parts.length;
+}
+function scoreOf(){
+  let s = 0; for (const f of state.findings) if (!f.inComment) s += SEV_W[f.sev];
+  s = Math.min(100, s);
+  if (state.findings.some(f => f.sev === 'critical')) s = Math.max(s, 60);
+  return s;
+}
+function renderSummary(){
+  const counts = {critical:0,high:0,medium:0,low:0,info:0};
+  state.findings.forEach(f => counts[f.sev]++);
+  const score = scoreOf();
+  const band = score < 10 ? 'low' : score < 30 ? 'moderate' : score < 60 ? 'elevated' : 'high';
+  const word = {low:'Low',moderate:'Moderate',elevated:'Elevated',high:'High'}[band];
+  const top = {};
+  state.findings.filter(f => !f.inComment && (f.sev === 'critical' || f.sev === 'high')).forEach(f => { const k = top[f.title] || (top[f.title] = {c:0, r:SEV.indexOf(f.sev)}); k.c++; });
+  const tops = Object.entries(top).sort((a, b) => a[1].r - b[1].r || b[1].c - a[1].c).slice(0, 3).map(([t, k]) => (k.c > 1 ? k.c + '× ' : '') + t);
+  let reason;
+  if (!state.files.length) reason = 'Choose files to start a scan.';
+  else if (tops.length) reason = 'Driven by ' + tops.join('; ') + '.';
+  else if (counts.medium) reason = 'No critical or high findings. Review the medium items before release.';
+  else reason = 'Nothing risky found. Check the API and resource lists to confirm they match what you expect.';
+  const max = Math.max(1, ...SEV.map(s => counts[s]));
+  const endpoints = new Set(state.apis.map(a => a.endpoint)).size;
+  const ext = [...state.domains.values()].filter(d => !isLocalHost(d.host)).length;
+  const lines = state.files.reduce((a, f) => a + f.lines, 0);
+  $('#summary').innerHTML = `
+    <div class="verdict v-${band}">
+      <div class="eyebrow">Overall exposure</div>
+      <div class="word">${word}<span class="score">${score} / 100</span></div>
+      <div class="scale" aria-hidden="true"><span class="s1"></span><span class="s2"></span><span class="s3"></span><span class="s4"></span><i class="marker" style="left:${score}%"></i></div>
+      <div class="ticks" aria-hidden="true"><span style="left:0">0</span><span style="left:10%">10</span><span style="left:30%">30</span><span style="left:60%">60</span><span style="left:100%">100</span></div>
+      <p>${esc(reason)}</p>
+    </div>
+    <div class="sevs">
+      <div class="eyebrow">Findings by severity</div>
+      ${SEV.map(s => `<button class="sevrow" data-sev="${s}" title="Show ${SEV_LABEL[s]} findings"><span class="pill sev-${s} sevname">${SEV_LABEL[s]}</span><span class="n">${counts[s]}</span><span class="track"><i class="fill-${s}" style="width:${counts[s] / max * 100}%"></i></span></button>`).join('')}
+    </div>
+    <dl class="stats">
+      <div><dt>Files</dt><dd>${fmtN(state.files.length)}</dd></div>
+      <div><dt>Lines</dt><dd>${fmtN(lines)}</dd></div>
+      <div><dt>API calls</dt><dd>${fmtN(state.apis.length)}</dd></div>
+      <div><dt>Endpoints</dt><dd>${fmtN(endpoints)}</dd></div>
+      <div><dt>Outside domains</dt><dd>${fmtN(ext)}</dd></div>
+      <div><dt>Resources</dt><dd>${fmtN(state.resources.length)}</dd></div>
+    </dl>`;
+}
+const TARGETS = ['SharePoint REST','Power Automate','Microsoft Graph','External','Intranet','Same site','Dynamic','Unknown'];
+function renderApi(){
+  const p = $('#panel-api');
+  const apis = state.apis.slice().sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+  const tc = {}; apis.forEach(a => tc[a.target] = (tc[a.target] || 0) + 1);
+  if (apiFilter !== 'All' && !tc[apiFilter]) apiFilter = 'All';
+  const rows = apis.filter(a => apiFilter === 'All' || a.target === apiFilter);
+  const distinct = new Set(apis.map(a => a.endpoint)).size;
+  const filesWith = new Set(apis.map(a => a.file)).size;
+  const apiHosts = new Set(apis.map(a => a.host)), resHosts = new Set(state.resources.map(r => r.host));
+  const doms = [...state.domains.values()].sort((a, b) => b.count - a.count);
+  const LIM = 1000;
+  p.innerHTML = `
+    <div class="panel-head"><h2>API and network calls</h2><p>${apis.length ? `${fmtN(apis.length)} calls to ${fmtN(distinct)} distinct endpoints in ${filesWith} file${filesWith === 1 ? '' : 's'}.` : 'No network calls found.'}</p></div>
+    ${apis.length ? `<div class="chips" role="group" aria-label="Filter by target">${['All'].concat(TARGETS.filter(t => tc[t])).map(t => `<button class="chip" data-target="${esc(t)}" aria-pressed="${apiFilter === t}">${esc(t)}<span class="c">${t === 'All' ? apis.length : tc[t]}</span></button>`).join('')}</div>` : ''}
+    <div class="api-grid">
+      <div class="sheet">${rows.length ? `<div class="tw"><table class="tbl-api"><thead><tr><th>Method</th><th>Endpoint</th><th>Target</th><th>Via</th><th>Location</th></tr></thead><tbody>
+        ${rows.slice(0, LIM).map(a => `<tr><td><span class="method${isWrite(a.method) ? ' write' : ''}">${esc(a.method)}</span></td><td><code title="${esc(maskSig(a.endpoint))}">${esc(maskSig(a.endpoint))}</code>${a.literal ? '' : ' <span class="tag">partly dynamic</span>'}</td><td class="tgt">${pillTarget(a)}</td><td class="muted">${esc(a.mech)}</td><td>${locBtn(a.file, a.line)}</td></tr>`).join('')}
+        </tbody></table></div>${rows.length > LIM ? `<div class="more">Showing the first ${LIM} of ${fmtN(rows.length)}. Export the CSV for the full list.</div>` : ''}` : '<div class="empty">No calls match this filter.</div>'}</div>
+      <aside class="sheet">
+        <div class="sub"><h3>Domains referenced</h3><span class="muted">${doms.length}</span></div>
+        ${doms.length ? `<div class="tw"><table><thead><tr><th>Domain</th><th>Use</th><th class="num">Refs</th></tr></thead><tbody>
+          ${doms.map(d => { const use = apiHosts.has(d.host) ? 'Called' : resHosts.has(d.host) ? 'Loaded' : 'Mentioned'; return `<tr><td><code>${esc(d.host)}</code>${d.insecure ? ' <span class="pill sev-medium">http</span>' : ''}${isLocalHost(d.host) ? ' <span class="tag">intranet</span>' : ''}</td><td class="muted">${use}</td><td class="num">${d.count}</td></tr>`; }).join('')}
+        </tbody></table></div>` : '<div class="empty">No web addresses in these files.</div>'}
+      </aside>
+    </div>`;
+}
+function pillTarget(a){
+  const s = a.target === 'External' || a.target === 'Dynamic' ? 'low' : a.target === 'Power Automate' ? 'medium' : 'info';
+  return `<span class="pill sev-${s}" style="text-transform:none;letter-spacing:0">${esc(a.target)}</span>${a.host && a.host !== 'same site' ? `<div class="muted mono" style="font-size:.74rem;margin-top:2px">${esc(a.host)}</div>` : ''}`;
+}
+function renderRes(){
+  const p = $('#panel-res');
+  const res = state.resources.slice().sort((a, b) => SEV.indexOf(a.sev) - SEV.indexOf(b.sev) || a.type.localeCompare(b.type) || a.file.localeCompare(b.file));
+  const caps = [...state.caps.values()].sort((a, b) => SEV.indexOf(a.sev) - SEV.indexOf(b.sev) || b.items.length - a.items.length);
+  const ext = res.filter(r => r.origin === 'External').length;
+  p.innerHTML = `
+    <div class="panel-head"><h2>Resources accessed</h2><p>${fmtN(res.length)} files and packages loaded (${ext} from other sites) and ${caps.length} browser, device or system feature${caps.length === 1 ? '' : 's'} used.</p></div>
+    <div class="res-grid">
+      <div class="sheet">
+        <div class="sub"><h3>Loaded files and packages</h3><span class="muted">${res.length}</span></div>
+        ${res.length ? `<div class="tw"><table class="tbl-res"><thead><tr><th>Type</th><th>Resource</th><th>Origin</th><th>Location</th></tr></thead><tbody>
+          ${res.slice(0, 1000).map(r => `<tr><td>${esc(r.type)}${r.sev !== 'info' ? ' ' + pill(r.sev) : ''}</td><td><code>${esc(maskSig(r.value))}</code></td><td class="muted">${esc(r.origin)}</td><td>${locBtn(r.file, r.line)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty">No external files, scripts or packages loaded.</div>'}
+      </div>
+      <div class="sheet">
+        <div class="sub"><h3>Browser, device and system access</h3><span class="muted">${caps.length}</span></div>
+        ${caps.length ? caps.map(c => `<div class="cap">${pill(c.sev)}<h3>${esc(c.name)}</h3><span class="uses">${c.items.length} use${c.items.length === 1 ? '' : 's'}</span>
+          <p class="adv">${esc(c.advice)}</p>
+          <div class="locs">${c.items.slice(0, 6).map(i => locBtn(i.file, i.line)).join('')}${c.items.length > 6 ? `<span class="muted" style="font-size:.78rem">+${c.items.length - 6} more</span>` : ''}</div></div>`).join('') : '<div class="empty">No storage, device, file system or command access found.</div>'}
+      </div>
+    </div>`;
+}
+function buildFindFilters(){
+  $('#sev-toggles').innerHTML = SEV.map(s => `<button class="pill sev-${s} sevtoggle" data-sev="${s}" aria-pressed="${F.sev.has(s)}">${SEV_LABEL[s]}</button>`).join('');
+  const cats = [...new Set(state.findings.map(f => f.cat))];
+  if (F.cat && !cats.includes(F.cat)) F.cat = '';
+  $('#f-cat').innerHTML = '<option value="">All categories</option>' + Object.keys(CATS).filter(c => cats.includes(c)).map(c => `<option value="${c}"${F.cat === c ? ' selected' : ''}>${esc(CATS[c])}</option>`).join('');
+  const files = state.files.map(f => f.path);
+  if (F.file && !files.includes(F.file)) F.file = '';
+  $('#f-file').innerHTML = '<option value="">All files</option>' + files.map(p => `<option value="${esc(p)}"${F.file === p ? ' selected' : ''}>${esc(p)}</option>`).join('');
+}
+function filteredFindings(){
+  const q = F.q.trim().toLowerCase();
+  return state.findings.filter(f => F.sev.has(f.sev) && (!F.cat || f.cat === F.cat) && (!F.file || f.file === F.file) &&
+    (!q || (f.title + ' ' + f.file + ' ' + (f.mask ? '' : f.snippet) + ' ' + (f.extra && f.extra.endpoint || '') + ' ' + (f.extra && f.extra.value || '')).toLowerCase().includes(q)))
+    .sort((a, b) => SEV.indexOf(a.sev) - SEV.indexOf(b.sev) || a.file.localeCompare(b.file) || a.line - b.line);
+}
+function renderFindings(){
+  const list = filteredFindings();
+  const hidden = state.findings.length - list.length;
+  $('#find-sub').textContent = `${fmtN(list.length)} shown` + (hidden ? `, ${fmtN(hidden)} hidden by filters` : '');
+  const show = list.slice(0, F.limit);
+  $('#flist').innerHTML = show.length ? show.map(f => {
+    let detail = '';
+    if (f.extra && f.extra.kind === 'api') detail = `<div class="detail"><span class="method${isWrite(f.extra.method) ? ' write' : ''}">${esc(f.extra.method)}</span> ${esc(maskSig(f.extra.endpoint))} <span class="muted">→ ${esc(f.extra.target)}</span></div>`;
+    if (f.extra && f.extra.kind === 'res') detail = `<div class="detail">${esc(maskSig(f.extra.value))}</div>`;
+    return `<article class="fnd">${pill(f.sev)}<div class="fbody">
+      <div class="fhead"><h3>${esc(f.title)}</h3><span class="cat">${esc(CATS[f.cat])}</span>${f.inComment ? '<span class="tag">in a comment</span>' : ''}</div>
+      ${locBtn(f.file, f.line)}${detail}
+      ${f.cat === 'archive' ? '' : `<pre class="snip"><code>${snippetHTML(f)}</code></pre>`}
+      <p class="adv">${esc(f.advice)}</p></div></article>`;
+  }).join('') : '<div class="empty">No findings match these filters.</div>';
+  $('#fmore').innerHTML = list.length > F.limit ? `<div class="more"><button class="btn" id="show-more">Show ${Math.min(300, list.length - F.limit)} more</button> of ${fmtN(list.length - F.limit)} remaining</div>` : '';
+}
+function renderFiles(){
+  const p = $('#panel-files');
+  const files = state.files.slice().sort((a, b) => scoreF(b) - scoreF(a) || a.path.localeCompare(b.path));
+  p.innerHTML = `<div class="panel-head"><h2>Files scanned</h2><p>Select a file to see only its findings.</p></div>
+    <div class="sheet">${files.length ? `<div class="tw"><table class="tbl-files"><thead><tr><th>File</th><th>Language</th><th class="num">Lines</th><th class="num">Critical</th><th class="num">High</th><th class="num">Medium</th><th class="num">Low</th><th class="num">API calls</th></tr></thead><tbody>
+      ${files.map(f => `<tr><td><button class="loc" data-filter-file="${esc(f.path)}">${esc(f.path)}</button></td><td class="muted">${esc(LANG[f.lang])}</td><td class="num">${fmtN(f.lines)}</td>${['critical','high','medium','low'].map(s => `<td class="num">${f.counts[s] ? `<span class="pill sev-${s}">${f.counts[s]}</span>` : '<span class="muted">0</span>'}</td>`).join('')}<td class="num">${f.apis}</td></tr>`).join('')}
+    </tbody></table></div>` : '<div class="empty">No files scanned yet.</div>'}</div>
+    ${state.skipped.length ? `<div class="sheet"><div class="sub"><h3>Not scanned</h3><span class="muted">${fmtN(state.skipped.length)}</span></div><div class="tw"><table class="skiplist"><thead><tr><th>File</th><th>Reason</th></tr></thead><tbody>
+      ${state.skipped.slice(0, 1000).map(k => `<tr><td><code>${esc(k.path)}</code></td><td class="muted">${esc(k.why)}</td></tr>`).join('')}
+    </tbody></table></div>${state.skipped.length > 1000 ? `<div class="more">Showing the first 1,000. The downloaded report lists all of them.</div>` : ''}</div>` : ''}`;
+}
+const scoreF = f => SEV.reduce((a, s) => a + f.counts[s] * SEV_W[s], 0);
+
+/* ---------- tabs & interactions ---------- */
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+  ['api','res','find','files'].forEach(n => { $('#panel-' + n).hidden = n !== name; });
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+document.addEventListener('click', e => {
+  const loc = e.target.closest('[data-line]');
+  if (loc){ openViewer(loc.dataset.file, +loc.dataset.line); return; }
+  const ff = e.target.closest('[data-filter-file]');
+  if (ff){ F.file = ff.dataset.filterFile; F.sev = new Set(SEV); F.limit = 300; buildFindFilters(); renderFindings(); showTab('find'); return; }
+  const sr = e.target.closest('.sevrow');
+  if (sr){ F.sev = new Set([sr.dataset.sev]); F.cat = ''; F.file = ''; F.limit = 300; buildFindFilters(); renderFindings(); showTab('find'); return; }
+  const st = e.target.closest('.sevtoggle');
+  if (st){ const s = st.dataset.sev; F.sev.has(s) ? F.sev.delete(s) : F.sev.add(s); F.limit = 300; st.setAttribute('aria-pressed', String(F.sev.has(s))); renderFindings(); return; }
+  const ch = e.target.closest('[data-target]');
+  if (ch){ apiFilter = ch.dataset.target; renderApi(); return; }
+  if (e.target.id === 'show-more'){ F.limit += 300; renderFindings(); }
+});
+$('#f-cat').addEventListener('change', e => { F.cat = e.target.value; F.limit = 300; renderFindings(); });
+$('#f-file').addEventListener('change', e => { F.file = e.target.value; F.limit = 300; renderFindings(); });
+let qT; $('#f-q').addEventListener('input', e => { clearTimeout(qT); qT = setTimeout(() => { F.q = e.target.value; F.limit = 300; renderFindings(); }, 150); });
+
+/* ---------- code viewer ---------- */
+function openViewer(path, line){
+  const f = state.files.find(x => x.path === path); if (!f) return;
+  const lines = f.text.split('\n');
+  const from = Math.max(0, line - 40), to = Math.min(lines.length, line + 40);
+  let html = '<table><tbody>';
+  for (let i = from; i < to; i++){
+    let t = lines[i].replace(/\t/g, '  ');
+    if (t.length > 600) t = t.slice(0, 600) + ' … (line continues)';
+    html += `<tr${i + 1 === line ? ' class="on" id="v-on"' : ''}><td class="ln">${i + 1}</td><td>${esc(t) || ' '}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  $('#v-path').textContent = path + ':' + line;
+  $('#v-code').innerHTML = html;
+  $('#viewer').hidden = false; $('#scrim').hidden = false;
+  const on = $('#v-on'); if (on && on.scrollIntoView) on.scrollIntoView({block:'center'});
+  $('#v-close').focus();
+}
+function closeViewer(){ $('#viewer').hidden = true; $('#scrim').hidden = true; }
+$('#v-close').addEventListener('click', closeViewer);
+$('#scrim').addEventListener('click', closeViewer);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#viewer').hidden) closeViewer(); });
+
+/* ---------- intake ---------- */
+function showProgress(done, total, label){
+  const p = $('#progress'); p.hidden = false;
+  p.innerHTML = `${esc(label || 'Scanning')} ${done} of ${total}<div class="bar"><i style="width:${total ? done / total * 100 : 0}%"></i></div>`;
+}
+/* ---------- ZIP reader (no library: uses the browser's built-in deflate) ---------- */
+const LIM = {depth:4, entries:50000, total:1e9, file:15e6, zip:1.5e9};
+const EXEC_EXT = /\.(exe|dll|msi|scr|com|cpl|sys|jar|lnk|appx|msix|apk|dmg|iso|img|vhdx?|pif|reg)$/i;
+const MACRO_EXT = /\.(docm|xlsm|xlsb|pptm|xlam|dotm|xltm|ppam)$/i;
+const isZip = p => /\.zip$/i.test(p);
+const u16 = (v, o) => v.getUint16(o, true), u32 = (v, o) => v.getUint32(o, true);
+const u64 = (v, o) => v.getUint32(o, true) + v.getUint32(o + 4, true) * 4294967296;
+function readZipDir(buf){
+  const v = new DataView(buf), n = buf.byteLength;
+  let eo = -1;
+  for (let i = n - 22; i >= Math.max(0, n - 65557); i--) if (u32(v, i) === 0x06054b50){ eo = i; break; }
+  if (eo < 0) throw new Error('not a valid ZIP file, or it is damaged');
+  let count = u16(v, eo + 10), cdOff = u32(v, eo + 16);
+  if ((count === 0xFFFF || cdOff === 0xFFFFFFFF) && eo >= 20 && u32(v, eo - 20) === 0x07064b50){
+    const z = u64(v, eo - 12);
+    if (z + 56 <= n && u32(v, z) === 0x06064b50){ count = u64(v, z + 32); cdOff = u64(v, z + 48); }
+  }
+  const utf8 = new TextDecoder('utf-8'), out = [];
+  let p = cdOff;
+  for (let k = 0; k < count && p + 46 <= n; k++){
+    if (u32(v, p) !== 0x02014b50) break;
+    const flags = u16(v, p + 8), method = u16(v, p + 10), nl = u16(v, p + 28), el = u16(v, p + 30), cl = u16(v, p + 32);
+    let csize = u32(v, p + 20), usize = u32(v, p + 24), lo = u32(v, p + 42);
+    const name = utf8.decode(new Uint8Array(buf, p + 46, Math.min(nl, n - p - 46)));
+    for (let e = p + 46 + nl, ee = Math.min(e + el, n); e + 4 <= ee; ){
+      const id = u16(v, e), sz = u16(v, e + 2);
+      if (id === 1){ let q = e + 4; if (usize === 0xFFFFFFFF){ usize = u64(v, q); q += 8; } if (csize === 0xFFFFFFFF){ csize = u64(v, q); q += 8; } if (lo === 0xFFFFFFFF) lo = u64(v, q); }
+      e += 4 + sz;
+    }
+    out.push({name:name.replace(/\\/g, '/'), rawName:name, flags, method, csize, usize, lo});
+    p += 46 + nl + el + cl;
+  }
+  return out;
+}
+async function zipEntryBytes(buf, en){
+  const v = new DataView(buf);
+  if (en.lo + 30 > buf.byteLength || u32(v, en.lo) !== 0x04034b50) throw new Error('damaged entry in the archive');
+  const start = en.lo + 30 + u16(v, en.lo + 26) + u16(v, en.lo + 28);
+  const data = new Uint8Array(buf, start, Math.max(0, Math.min(en.csize, buf.byteLength - start)));
+  if (en.method === 0) return data;
+  if (en.method !== 8) throw new Error('uses a compression method this page cannot unpack');
+  if (typeof DecompressionStream === 'undefined') throw new Error('this browser cannot unpack ZIPs; update Edge');
+  const reader = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+  const chunks = []; let total = 0;
+  for (;;){
+    const {done, value} = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > LIM.file){ try { reader.cancel(); } catch (_) {} throw new Error('over 15 MB once unpacked'); }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total); let o = 0;
+  for (const c of chunks){ out.set(c, o); o += c.length; }
+  return out;
+}
+function archiveFinding(path, sev, title, advice){
+  state.findings.push({id:FID++, file:path, line:0, col:0, rule:'zip', cat:'archive', sev, title, advice, snippet:path, match:'', mask:false, inComment:false, extra:null});
+}
+const skip = (path, why) => state.skipped.push({path, why});
+async function expandZip(zpath, buf, depth, items, ctx){
+  let entries;
+  try { entries = readZipDir(buf); } catch (e) { skip(zpath, e.message); return; }
+  const rec = {path:zpath, entries:0};
+  state.archives.push(rec);
+  for (const en of entries){
+    if (en.name.endsWith('/') || /(^|\/)(__MACOSX\/|\.DS_Store$|Thumbs\.db$)/i.test(en.name)) continue;
+    rec.entries++;
+    const full = zpath + '/' + en.name.replace(/^\/+/, '');
+    if (/(^|\/)\.\.(\/|$)/.test(en.name) || /^\//.test(en.rawName) || /^[a-z]:/i.test(en.name))
+      archiveFinding(full, 'high', 'Archive entry writes outside its folder', 'This entry name climbs out of the extraction folder (path traversal, "Zip Slip"). Unpacking it with some tools could overwrite files elsewhere on the PC. Do not extract this archive with automated tools.');
+    if (++ctx.entries > LIM.entries){ skip(zpath, 'stopped after 50,000 entries'); break; }
+    if (/(^|\/)(node_modules|\.git)\//.test(en.name)){ skip(full, 'dependency or version-control folder'); continue; }
+    if (en.flags & 1){ archiveFinding(full, 'medium', 'Password-protected file in archive', 'Encrypted entries cannot be inspected. Ask the supplier for an unprotected copy, or extract it and scan the files directly.'); skip(full, 'password protected'); continue; }
+    if (EXEC_EXT.test(en.name)){ archiveFinding(full, 'medium', 'Program or binary file inside archive', 'Compiled programs cannot be read by this scan. Confirm why the archive includes it and check it with your antivirus before running it.'); skip(full, 'program or binary'); continue; }
+    if (MACRO_EXT.test(en.name)){ archiveFinding(full, 'low', 'Macro-enabled Office file inside archive', 'Macros are stored in a binary format this page does not inspect. Open it with macros disabled, or export the VBA modules and scan them.'); skip(full, 'macro-enabled Office file'); continue; }
+    ctx.total += en.usize;
+    if (ctx.total > LIM.total){ skip(full, 'stopped: archive expands beyond 1 GB'); archiveFinding(zpath, 'medium', 'Archive expands to an unusually large size', 'The contents grow past 1 GB once unpacked. This can be a ZIP bomb. Only part of the archive was scanned.'); break; }
+    if (isZip(en.name)){
+      if (depth >= LIM.depth){ skip(full, 'ZIP nested too deeply'); continue; }
+      try { const b = await zipEntryBytes(buf, en); await expandZip(full, b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength), depth + 1, items, ctx); }
+      catch (e) { skip(full, e.message); }
+      continue;
+    }
+    if (SKIP_EXT.test(en.name)){ skip(full, 'not code (image, document, media or binary)'); continue; }
+    if (en.usize > LIM.file){ skip(full, 'over 15 MB'); continue; }
+    items.push({path:full, read:() => zipEntryBytes(buf, en)});
+  }
+}
+function decodeText(bytes){
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  if (b[0] === 0xFF && b[1] === 0xFE) return new TextDecoder('utf-16le').decode(b.subarray(2));
+  if (b[0] === 0xFE && b[1] === 0xFF) return new TextDecoder('utf-16be').decode(b.subarray(2));
+  const head = b.subarray(0, 8000);
+  if (head.indexOf(0) !== -1) return null;
+  let t = new TextDecoder('utf-8').decode(b);
+  if (t.charCodeAt(0) === 0xFEFF) t = t.slice(1);
+  return t;
+}
+function skipSummary(){
+  const g = {};
+  state.skipped.forEach(k => { g[k.why] = (g[k.why] || 0) + 1; });
+  return Object.entries(g).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([w, c]) => fmtN(c) + ' ' + w).join(', ') + (Object.keys(g).length > 4 ? ', and others' : '');
+}
+
+async function handleFiles(list){
+  const all = [...list];
+  if (!all.length){ toast('No files were selected.'); return; }
+  state = fresh(); FID = 0;
+  const items = [], ctx = {entries:0, total:0};
+  let z = 0;
+  const zips = all.filter(f => isZip(f.webkitRelativePath || f.relPath || f.name)).length;
+  for (const f of all){
+    const p = f.webkitRelativePath || f.relPath || f.name;
+    if (/(^|\/)(node_modules|\.git)\//.test(p)) continue;
+    if (isZip(p)){
+      showProgress(++z, zips, 'Unpacking ZIP');
+      await new Promise(r => setTimeout(r, 0));
+      if (f.size > LIM.zip){ skip(p, 'ZIP over 1.5 GB'); continue; }
+      let buf; try { buf = await f.arrayBuffer(); } catch (e) { skip(p, 'could not be read'); continue; }
+      await expandZip(p, buf, 1, items, ctx);
+      continue;
+    }
+    if (SKIP_EXT.test(p)){ skip(p, 'not code (image, document, media or binary)'); continue; }
+    if (f.size > LIM.file){ skip(p, 'over 15 MB'); continue; }
+    items.push({path:p, read:() => f.arrayBuffer()});
+  }
+  for (let i = 0; i < items.length; i++){
+    const it = items[i];
+    let t;
+    try { t = decodeText(await it.read()); } catch (e) { skip(it.path, e.message || 'could not be read'); continue; }
+    if (t == null){ skip(it.path, 'binary file'); continue; }
+    state.files.push(scanFile(it.path, t.replace(/\r\n?/g, '\n')));
+    if (i % 4 === 0 || i === items.length - 1){ showProgress(i + 1, items.length); await new Promise(r => setTimeout(r, 0)); }
+  }
+  $('#progress').hidden = true;
+  apiFilter = 'All'; Object.assign(F, {sev:new Set(['critical','high','medium','low']), cat:'', file:'', q:'', limit:300}); $('#f-q').value = '';
+  render();
+  if (!state.files.length) toast(state.skipped.length ? 'Nothing scannable found. The Files tab lists what was skipped and why.' : 'No files were selected.');
+  else toast(`Scanned ${fmtN(state.files.length)} file${state.files.length === 1 ? '' : 's'}${state.archives.length ? ' from ' + state.archives.length + ' ZIP archive' + (state.archives.length > 1 ? 's' : '') : ''}.`);
+}
+$('#pick-files').addEventListener('change', e => { handleFiles(e.target.files); e.target.value = ''; });
+$('#pick-folder').addEventListener('change', e => { handleFiles(e.target.files); e.target.value = ''; });
+document.querySelectorAll('label.btn').forEach(l => l.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); $('#' + l.htmlFor).click(); } }));
+$('#load-sample').addEventListener('click', loadSample);
+
+const drop = $('#drop');
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); if (ev === 'dragleave' && drop.contains(e.relatedTarget)) return; drop.classList.remove('over'); }));
+drop.addEventListener('drop', async e => {
+  const items = e.dataTransfer.items;
+  if (items && items.length && items[0].webkitGetAsEntry){
+    const entries = [...items].map(i => i.webkitGetAsEntry()).filter(Boolean);
+    const out = [];
+    const walk = async (entry, prefix) => {
+      if (entry.isFile){ await new Promise(res => entry.file(f => { f.relPath = prefix + f.name; out.push(f); res(); }, res)); }
+      else if (entry.isDirectory){
+        if (/^(node_modules|\.git)$/.test(entry.name)) return;
+        const reader = entry.createReader();
+        let batch;
+        do { batch = await new Promise(res => reader.readEntries(res, () => res([]))); for (const b of batch) await walk(b, prefix + entry.name + '/'); } while (batch.length);
+      }
+    };
+    showProgress(0, 0, 'Reading folder');
+    for (const en of entries) await walk(en, '');
+    handleFiles(out);
+  } else handleFiles(e.dataTransfer.files);
+});
+
+function loadSample(){
+  state = fresh(); FID = 0; state.sample = true;
+  ['#sample-1','#sample-2'].forEach(s => { const el = $(s); state.files.push(scanFile(el.dataset.name, el.value.replace(/\r\n?/g, '\n'))); });
+  apiFilter = 'All';
+  render();
+}
+
+/* ---------- export ---------- */
+const csvCell = v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+function buildCSV(){
+  const head = ['Severity','Category','Finding','File','Line','Method','Endpoint or resource','Target','In comment','Code'];
+  const rows = state.findings.slice().sort((a, b) => SEV.indexOf(a.sev) - SEV.indexOf(b.sev) || a.file.localeCompare(b.file) || a.line - b.line).map(f => {
+    const ex = f.extra || {};
+    let code = f.snippet.trim(); if (code.length > 300) code = code.slice(0, 300) + '…';
+    if (f.mask) code = code.replace(f.match, maskSecret(f.match));
+    return [SEV_LABEL[f.sev], CATS[f.cat], f.title, f.file, f.line || '', ex.method || '', maskSig(ex.endpoint || ex.value || ''), ex.target || ex.origin || '', f.inComment ? 'yes' : '', maskSig(code)];
+  });
+  return [head].concat(rows).map(r => r.map(csvCell).join(',')).join('\r\n');
+}
+function stamp(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function download(name, content, type){
+  try {
+    const url = URL.createObjectURL(new Blob([content], {type}));
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast('Download started. If no file appears, open this page from SharePoint or your computer, or use Copy CSV.');
+  } catch (e) { toast('Downloads are blocked here. Use Copy CSV instead.'); }
+}
+async function copyText(text){
+  try { await navigator.clipboard.writeText(text); toast('Findings copied as CSV. Paste into Excel.'); }
+  catch (e) {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (_) {}
+    ta.remove(); toast(ok ? 'Findings copied as CSV. Paste into Excel.' : 'Copy was blocked. Use Download CSV instead.');
+  }
+}
+$('#copy-csv').addEventListener('click', () => copyText(buildCSV()));
+$('#dl-csv').addEventListener('click', () => download('code-reach-audit-' + stamp() + '.csv', '\uFEFF' + buildCSV(), 'text/csv'));
+$('#dl-report').addEventListener('click', () => download('code-reach-audit-' + stamp() + '.html', buildReport(), 'text/html'));
+
+function buildReport(){
+  const score = scoreOf();
+  const band = score < 10 ? 'Low' : score < 30 ? 'Moderate' : score < 60 ? 'Elevated' : 'High';
+  const counts = {critical:0,high:0,medium:0,low:0,info:0}; state.findings.forEach(f => counts[f.sev]++);
+  const col = {critical:'#b42318',high:'#c2410c',medium:'#8a6100',low:'#3b5f99',info:'#5f6b78'};
+  const tag = s => `<span style="color:${col[s]};font-weight:600">${SEV_LABEL[s]}</span>`;
+  const t = (head, rows) => `<table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  const apis = state.apis.slice().sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+  const fnd = state.findings.filter(f => f.sev !== 'info').sort((a, b) => SEV.indexOf(a.sev) - SEV.indexOf(b.sev) || a.file.localeCompare(b.file) || a.line - b.line);
+  const caps = [...state.caps.values()];
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Code Reach Audit report ${stamp()}</title><style>
+body{font-family:'Segoe UI',system-ui,sans-serif;color:#152230;margin:32px auto;max-width:1100px;padding:0 20px;font-size:13px;line-height:1.45}
+h1{font-size:24px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 8px;border-bottom:2px solid #152230;padding-bottom:4px}
+table{border-collapse:collapse;width:100%;margin:6px 0}th,td{text-align:left;padding:5px 8px;border-bottom:1px solid #d5dce4;vertical-align:top}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#5a6878}code{font-family:Consolas,monospace;font-size:12px;word-break:break-all}
+.k{display:inline-block;margin-right:24px}.k b{font-size:20px;display:block}.muted{color:#5a6878}
+</style></head><body>
+<h1>Code Reach Audit</h1><p class="muted">Generated ${new Date().toLocaleString()} · ${state.files.length} files · ${state.files.reduce((a, f) => a + f.lines, 0).toLocaleString()} lines · secrets masked</p>
+<h2>Summary</h2>
+<p><span class="k"><b>${band}</b>Exposure (${score}/100)</span>${SEV.map(s => `<span class="k"><b style="color:${col[s]}">${counts[s]}</b>${SEV_LABEL[s]}</span>`).join('')}</p>
+<h2>API and network calls (${apis.length})</h2>
+${apis.length ? t(['Method','Endpoint','Target','Via','Location'], apis.map(a => `<tr><td>${esc(a.method)}</td><td><code>${esc(maskSig(a.endpoint))}</code></td><td>${esc(a.target)}${a.host && a.host !== 'same site' ? '<br><span class="muted">' + esc(a.host) + '</span>' : ''}</td><td>${esc(a.mech)}</td><td><code>${esc(a.file)}:${a.line}</code></td></tr>`)) : '<p>None found.</p>'}
+<h2>Domains referenced (${state.domains.size})</h2>
+${state.domains.size ? t(['Domain','References','Files','Plain http'], [...state.domains.values()].sort((a, b) => b.count - a.count).map(d => `<tr><td><code>${esc(d.host)}</code></td><td>${d.count}</td><td>${d.files.size}</td><td>${d.insecure ? 'Yes' : ''}</td></tr>`)) : '<p>None found.</p>'}
+<h2>Loaded files and packages (${state.resources.length})</h2>
+${state.resources.length ? t(['Type','Resource','Origin','Location'], state.resources.map(r => `<tr><td>${esc(r.type)}</td><td><code>${esc(maskSig(r.value))}</code></td><td>${esc(r.origin)}</td><td><code>${esc(r.file)}:${r.line}</code></td></tr>`)) : '<p>None found.</p>'}
+<h2>Browser, device and system access (${caps.length})</h2>
+${caps.length ? t(['Feature','Severity','Uses','Locations'], caps.map(c => `<tr><td>${esc(c.name)}</td><td>${tag(c.sev)}</td><td>${c.items.length}</td><td><code>${c.items.slice(0, 8).map(i => esc(i.file) + ':' + i.line).join(', ')}${c.items.length > 8 ? ' …' : ''}</code></td></tr>`)) : '<p>None found.</p>'}
+<h2>Findings (${fnd.length}, Info items omitted)</h2>
+${fnd.length ? t(['Severity','Finding','Location','Code','What to do'], fnd.map(f => { let c = f.snippet.trim(); if (c.length > 220) c = c.slice(0, 220) + '…'; if (f.mask) c = c.replace(f.match.trim(), maskSecret(f.match.trim())); return `<tr><td>${tag(f.sev)}</td><td>${esc(f.title)}<br><span class="muted">${esc(CATS[f.cat])}${f.inComment ? ' · in comment' : ''}</span></td><td><code>${esc(f.file)}${f.line ? ':' + f.line : ''}</code></td><td><code>${f.cat === 'archive' ? '' : esc(maskSig(c))}</code></td><td>${esc(f.advice)}</td></tr>`; })) : '<p>No findings above Info.</p>'}
+<h2>Files</h2>
+${t(['File','Lines','Critical','High','Medium','Low','API calls'], state.files.map(f => `<tr><td><code>${esc(f.path)}</code></td><td>${f.lines}</td><td>${f.counts.critical}</td><td>${f.counts.high}</td><td>${f.counts.medium}</td><td>${f.counts.low}</td><td>${f.apis}</td></tr>`))}
+${state.archives.length ? `<p class="muted">ZIP archives unpacked: ${esc(state.archives.map(z => z.path + ' (' + z.entries + ' entries)').join(', '))}</p>` : ''}
+${state.skipped.length ? `<h2>Files not scanned (${state.skipped.length})</h2>` + t(['File','Reason'], state.skipped.map(k => `<tr><td><code>${esc(k.path)}</code></td><td>${esc(k.why)}</td></tr>`)) : ''}
+<p class="muted" style="margin-top:28px">Pattern-based static scan. It does not run the code; addresses built at runtime may be incomplete. Use as a first-pass review.</p>
+</body></html>`;
+}
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 4200); }
+
+$('#rule-count').textContent = RULES.length;
+state = fresh();
+render();
+})();
+</script>
+</body>
+</html>
