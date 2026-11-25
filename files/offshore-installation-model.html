@@ -1,0 +1,2909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>North Field Offshore Gas Complex — 3D Interactive Simulation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Three.js r128 and OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    * { box-sizing: border-box; user-select: none; }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      background-color: #071926;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .font-mono-tech {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .glass-panel {
+      background: rgba(10, 25, 41, 0.76);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(125, 211, 252, 0.22);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    }
+    .glass-btn {
+      background: rgba(15, 39, 64, 0.82);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      transition: all 0.18s ease;
+    }
+    .glass-btn:hover {
+      background: rgba(24, 64, 102, 0.92);
+      border-color: rgba(125, 211, 252, 0.65);
+      transform: translateY(-1px);
+    }
+    .glass-btn.active {
+      background: rgba(14, 165, 233, 0.35);
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+    }
+    /* Custom scrollbar for logs */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 99px; }
+
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
+    .status-dot {
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="text-slate-100">
+
+  <!-- 3D Viewport -->
+  <div id="canvas-container"></div>
+
+  <!-- Persistent Floating Show/Hide Controls Pill (Always Accessible Even When HUD Hidden) -->
+  <button id="floating-hud-toggle" title="Toggle On-Screen Controls (Shortcut: H)" class="fixed top-3 right-3 z-40 glass-btn rounded-xl px-3.5 py-2 text-xs font-semibold text-sky-200 hover:text-white flex items-center gap-2 shadow-xl">
+    <svg id="floating-eye-open" class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+    </svg>
+    <svg id="floating-eye-closed" class="w-4 h-4 text-amber-400 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+    </svg>
+    <span id="floating-hud-label">Hide Controls</span>
+    <kbd class="hidden sm:inline-block text-[10px] font-mono-tech px-1.5 py-0.5 rounded bg-slate-900/80 text-slate-300 border border-slate-700">H</kbd>
+  </button>
+
+  <!-- Top Header & Live Telemetry Bar -->
+  <div id="top-hud" class="fixed top-3 left-3 right-40 sm:right-48 z-20 flex flex-wrap items-start justify-between gap-2 pointer-events-none transition-opacity duration-200">
+    <!-- Brand & Title Card -->
+    <div class="glass-panel rounded-xl px-4 py-2.5 pointer-events-auto flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400 shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm sm:text-base font-bold tracking-tight text-white">NORTH FIELD ALPHA COMPLEX</h1>
+          <span id="depth-badge" class="text-[10px] font-mono-tech uppercase px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30">
+            SURFACE +18m
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-300 hidden sm:block">Offshore Natural Gas Production &amp; Subsea Trunkline Operations</p>
+      </div>
+    </div>
+
+    <!-- Live Production Metrics -->
+    <div id="telemetry-strip" class="glass-panel rounded-xl px-3.5 py-2 pointer-events-auto flex flex-wrap items-center gap-4 text-xs">
+      <div>
+        <div class="text-[10px] uppercase tracking-wider text-slate-400">Gas Export</div>
+        <div class="font-mono-tech font-semibold text-emerald-400 text-sm"><span id="metric-gas">1,420</span> <span class="text-[10px] text-slate-300">MMSCFD</span></div>
+      </div>
+      <div class="h-6 w-px bg-slate-700/80"></div>
+      <div>
+        <div class="text-[10px] uppercase tracking-wider text-slate-400">Active WHPs</div>
+        <div class="font-mono-tech font-semibold text-amber-300 text-sm"><span id="metric-whp-count">5</span> <span class="text-[10px] text-slate-300">SATELLITES</span></div>
+      </div>
+      <div class="h-6 w-px bg-slate-700/80 hidden md:block"></div>
+      <div class="hidden md:block">
+        <div class="text-[10px] uppercase tracking-wider text-slate-400">Trunkline Press.</div>
+        <div class="font-mono-tech font-semibold text-sky-300 text-sm"><span id="metric-pressure">118.4</span> <span class="text-[10px] text-slate-300">BAR</span></div>
+      </div>
+      <div class="h-6 w-px bg-slate-700/80 hidden lg:block"></div>
+      <div class="hidden lg:block">
+        <div class="text-[10px] uppercase tracking-wider text-slate-400">Logistics</div>
+        <div class="font-mono-tech text-[11px] text-slate-200 flex items-center gap-2">
+          <span class="inline-block w-2 h-2 rounded-full bg-sky-400 status-dot"></span>
+          <span id="logistics-status">OSV En Route • Heli Standby</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast / Sighting Alert Banner -->
+  <div id="alert-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 pointer-events-none w-full max-w-md px-4"></div>
+
+  <!-- Left Collapsible Panel: Field Controls & Event Triggers -->
+  <div id="left-hud" class="fixed left-3 top-24 z-20 w-64 sm:w-72 flex flex-col gap-2.5 pointer-events-none max-h-[calc(100vh-11rem)] overflow-y-auto">
+    
+    <!-- Wellhead Management Card -->
+    <div class="glass-panel rounded-xl p-3 pointer-events-auto">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-semibold uppercase tracking-wider text-sky-300">Wellhead Field Control</span>
+        <span class="text-[10px] text-slate-400 font-mono-tech">DRAG TO MOVE</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="btn-add-whp" class="glass-btn rounded-lg px-2.5 py-2 text-xs font-medium text-emerald-300 flex items-center justify-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          <span>Add WHP</span>
+        </button>
+        <button id="btn-drag-mode" class="glass-btn active rounded-lg px-2.5 py-2 text-xs font-medium text-sky-200 flex items-center justify-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+          </svg>
+          <span>Drag Mode: ON</span>
+        </button>
+      </div>
+      <p id="placement-hint" class="text-[11px] text-slate-300 mt-2 leading-snug">
+        Click &amp; drag any yellow wellhead platform on the sea to reposition it and reroute its subsea flowline.
+      </p>
+
+      <!-- Selected Wellhead Inspector -->
+      <div id="whp-inspector" class="hidden mt-3 pt-2.5 border-t border-slate-700/70">
+        <div class="flex items-center justify-between mb-1.5">
+          <span id="insp-name" class="text-xs font-bold text-amber-300 font-mono-tech">WHP-01</span>
+          <button id="btn-delete-whp" class="text-[11px] px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/30 transition">
+            Decommission
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-1.5 text-[11px] font-mono-tech text-slate-300">
+          <div class="bg-slate-900/50 rounded px-2 py-1">
+            <span class="text-slate-400 block text-[9px]">FLOW RATE</span>
+            <span id="insp-flow" class="text-emerald-300">285 MMSCFD</span>
+          </div>
+          <div class="bg-slate-900/50 rounded px-2 py-1">
+            <span class="text-slate-400 block text-[9px]">WELLHEAD P.</span>
+            <span id="insp-press" class="text-sky-300">142 BAR</span>
+          </div>
+          <div class="bg-slate-900/50 rounded px-2 py-1">
+            <span class="text-slate-400 block text-[9px]">LINE LENGTH</span>
+            <span id="insp-dist">1.4 km</span>
+          </div>
+          <div class="bg-slate-900/50 rounded px-2 py-1">
+            <span class="text-slate-400 block text-[9px]">WATER DEPTH</span>
+            <span id="insp-depth">38.0 m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Operations & Marine Sightings Card -->
+    <div class="glass-panel rounded-xl p-3 pointer-events-auto">
+      <span class="text-xs font-semibold uppercase tracking-wider text-sky-300 block mb-2">Logistics &amp; Marine Events</span>
+      <div class="grid grid-cols-2 gap-1.5">
+        <button id="btn-trigger-heli" class="glass-btn rounded-lg px-2 py-1.5 text-[11px] font-medium text-slate-100 flex items-center gap-1.5">
+          <span>🚁</span> <span>Heli Flight</span>
+        </button>
+        <button id="btn-trigger-vessel" class="glass-btn rounded-lg px-2 py-1.5 text-[11px] font-medium text-slate-100 flex items-center gap-1.5">
+          <span>🚢</span> <span>Supply Ship</span>
+        </button>
+        <button id="btn-trigger-whaleshark" class="glass-btn rounded-lg px-2 py-1.5 text-[11px] font-medium text-cyan-200 flex items-center gap-1.5">
+          <span>🦈</span> <span>Whale Shark</span>
+        </button>
+        <button id="btn-trigger-whale" class="glass-btn rounded-lg px-2 py-1.5 text-[11px] font-medium text-indigo-200 flex items-center gap-1.5">
+          <span>🐋</span> <span>Rare Whale</span>
+        </button>
+      </div>
+
+      <!-- Sightings & Operations Log -->
+      <div class="mt-2.5 pt-2 border-t border-slate-700/70">
+        <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Marine &amp; Ops Log</div>
+        <div id="event-log" class="space-y-1 max-h-28 overflow-y-auto text-[11px] font-mono-tech text-slate-300 pr-1">
+          <div class="text-sky-300">[SYS] North Field telemetry online.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Camera Preset & Navigation Bar -->
+  <div id="bottom-hud" class="fixed bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-auto max-w-[96vw]">
+    <div class="glass-panel rounded-2xl px-2.5 py-2 flex items-center gap-1.5 overflow-x-auto">
+      <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-2 hidden sm:inline">Viewpoints:</span>
+      <button data-cam="overview" class="cam-btn glass-btn active rounded-xl px-3 py-1.5 text-xs font-medium whitespace-nowrap">
+        360° Overview
+      </button>
+      <button data-cam="central" class="cam-btn glass-btn rounded-xl px-3 py-1.5 text-xs font-medium whitespace-nowrap">
+        Central Hub &amp; Flare
+      </button>
+      <button data-cam="underwater" class="cam-btn glass-btn rounded-xl px-3 py-1.5 text-xs font-medium text-cyan-300 whitespace-nowrap">
+        🌊 Subsea &amp; Marine
+      </button>
+      <button data-cam="shoreline" class="cam-btn glass-btn rounded-xl px-3 py-1.5 text-xs font-medium whitespace-nowrap">
+        Shore Trunkline
+      </button>
+      <button data-cam="heli" class="cam-btn glass-btn rounded-xl px-3 py-1.5 text-xs font-medium whitespace-nowrap">
+        Helipad &amp; LQ
+      </button>
+    </div>
+  </div>
+
+  <!-- Controls Helper Hint (Bottom Right) -->
+  <div id="helper-hud" class="fixed bottom-3 right-3 z-20 hidden xl:block pointer-events-none">
+    <div class="glass-panel rounded-xl px-3 py-2 text-[11px] text-slate-300 space-y-0.5">
+      <div><strong class="text-sky-300">Left Drag:</strong> Orbit 360° / Pitch Above &amp; Below Water</div>
+      <div><strong class="text-sky-300">Right Drag:</strong> Pan • <strong class="text-sky-300">Scroll:</strong> Zoom • <strong class="text-sky-300">[H]:</strong> Toggle HUD</div>
+      <div><strong class="text-amber-300">Drag WHP:</strong> Click &amp; drag yellow satellite platforms</div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. SCENE, RENDERER, CAMERA & CONTROLS SETUP
+    // =========================================================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0c3454);
+    scene.fog = new THREE.FogExp2(0x134e75, 0.0014);
+
+    const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.5, 2200);
+    camera.position.set(-105, 58, 125);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxDistance = 680;
+    controls.minDistance = 8;
+    // Allow full 360 horizontal and full vertical (above & below water) orbit
+    controls.minPolarAngle = 0.04;
+    controls.maxPolarAngle = Math.PI - 0.04;
+    controls.target.set(-12, 10, 4);
+
+    // =========================================================================
+    // 2. CONFIGURATION & GLOBAL STATE
+    // =========================================================================
+    const CONFIG = {
+      waterLevel: 0,
+      seabedDepth: -38,
+      shoreX: 460,
+      centralPos: new THREE.Vector3(0, 0, 0),
+      lqPos: new THREE.Vector3(-42, 0, 8),
+      helipadWorldPos: new THREE.Vector3(-52.2, 26.125, 8),
+      osvDockPos: new THREE.Vector3(-18, 0, 48),
+      osvSpawnPos: new THREE.Vector3(390, 0, 120),
+      heliSpawnPos: new THREE.Vector3(410, 74, -45)
+    };
+
+    const state = {
+      wellheads: [],
+      nextWhpId: 1,
+      selectedWhp: null,
+      draggingWhp: null,
+      dragMode: true,
+      placingNewWhp: false,
+      hudVisible: true,
+      isUnderwater: false,
+      cameraPreset: 'overview',
+      cameraTransition: null,
+      helipadDeckMesh: null,
+      windsockMesh: null,
+      craneHookGroup: null,
+      flameParticles: [],
+      bubbles: null,
+      fishSchools: [],
+      turtles: [],
+      whaleShark: { group: null, active: false, progress: 0, path: null },
+      rareWhale: { group: null, active: false, progress: 0, path: null },
+      helicopter: {
+        group: null,
+        mainRotor: null,
+        tailRotor: null,
+        strobeLight: null,
+        rotorRpm: 0,
+        gearHeight: 1.52,
+        state: 'IDLE_SHORE',
+        timer: 5,
+        progress: 0,
+        startPos: new THREE.Vector3(),
+        targetPos: new THREE.Vector3()
+      },
+      vessel: {
+        group: null,
+        wake: null,
+        state: 'INBOUND',
+        timer: 0,
+        progress: 0.15
+      }
+    };
+
+    // =========================================================================
+    // 3. LIGHTING & ATMOSPHERE
+    // =========================================================================
+    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x0a2538, 0.95);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.45);
+    sunLight.position.set(160, 220, 110);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 20;
+    sunLight.shadow.camera.far = 650;
+    const shadowBound = 140;
+    sunLight.shadow.camera.left = -shadowBound;
+    sunLight.shadow.camera.right = shadowBound;
+    sunLight.shadow.camera.top = shadowBound;
+    sunLight.shadow.camera.bottom = -shadowBound;
+    scene.add(sunLight);
+
+    const flareLight = new THREE.PointLight(0xff7b00, 3.2, 130);
+    flareLight.position.set(44.5, 55.2, -28.4);
+    scene.add(flareLight);
+
+    // =========================================================================
+    // 4. PROCEDURAL TEXTURES & SHARED MATERIALS
+    // =========================================================================
+    function createHelipadTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Subtle diamond grating grid on helideck surface
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+      ctx.lineWidth = 2;
+      for (let i = -512; i < 1024; i += 24) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i + 512, 512);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(i + 512, 0);
+        ctx.lineTo(i, 512);
+        ctx.stroke();
+      }
+
+      // Yellow perimeter circle
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 18;
+      ctx.beginPath();
+      ctx.arc(256, 256, 210, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Inner white dashed ring
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 6;
+      ctx.setLineDash([18, 14]);
+      ctx.beginPath();
+      ctx.arc(256, 256, 178, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // White 'H' landing marking
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 210px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('H', 256, 266);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.anisotropy = 4;
+      return tex;
+    }
+
+    // Procedural grated steel deck texture + bump map for topside platforms
+    function createDeckGratingTextures(baseHex = '#475569', gridHex = '#1e293b', repeatX = 6, repeatY = 6) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = baseHex;
+      ctx.fillRect(0, 0, 256, 256);
+
+      ctx.strokeStyle = gridHex;
+      ctx.lineWidth = 2;
+      for (let g = 0; g <= 256; g += 16) {
+        ctx.beginPath();
+        ctx.moveTo(g, 0);
+        ctx.lineTo(g, 256);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, g);
+        ctx.lineTo(256, g);
+        ctx.stroke();
+      }
+
+      // Non-slip tread studs at intersections
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.25)';
+      for (let x = 8; x < 256; x += 16) {
+        for (let y = 8; y < 256; y += 16) {
+          ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+        }
+      }
+
+      const map = new THREE.CanvasTexture(canvas);
+      map.wrapS = THREE.RepeatWrapping;
+      map.wrapT = THREE.RepeatWrapping;
+      map.repeat.set(repeatX, repeatY);
+      map.anisotropy = 4;
+
+      const bumpMap = new THREE.CanvasTexture(canvas);
+      bumpMap.wrapS = THREE.RepeatWrapping;
+      bumpMap.wrapT = THREE.RepeatWrapping;
+      bumpMap.repeat.set(repeatX, repeatY);
+
+      return { map, bumpMap };
+    }
+
+    // Procedural corrugated industrial panel / hull plating texture
+    function createCorrugatedPanelTextures(baseHex = '#f1f5f9', ribHex = '#cbd5e1', repeatX = 8, repeatY = 2) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = baseHex;
+      ctx.fillRect(0, 0, 256, 256);
+
+      for (let x = 0; x < 256; x += 16) {
+        ctx.fillStyle = ribHex;
+        ctx.fillRect(x, 0, 6, 256);
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.fillRect(x + 6, 0, 2, 256);
+      }
+
+      // Seam lines & rivet rows
+      ctx.strokeStyle = 'rgba(15, 23, 42, 0.25)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(1, 1, 254, 254);
+
+      const map = new THREE.CanvasTexture(canvas);
+      map.wrapS = THREE.RepeatWrapping;
+      map.wrapT = THREE.RepeatWrapping;
+      map.repeat.set(repeatX, repeatY);
+      map.anisotropy = 4;
+
+      return { map, bumpMap: map };
+    }
+
+    const deckTex = createDeckGratingTextures('#475569', '#1e293b', 7, 7);
+    const darkDeckTex = createDeckGratingTextures('#1e293b', '#0f172a', 7, 7);
+    const whitePanelTex = createCorrugatedPanelTextures('#f1f5f9', '#cbd5e1', 8, 3);
+    const bluePanelTex = createCorrugatedPanelTextures('#0284c7', '#0369a1', 8, 2);
+
+    const materials = {
+      jacketYellow: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.38, metalness: 0.52 }),
+      deckSteel: new THREE.MeshStandardMaterial({
+        color: 0x64748b,
+        map: deckTex.map,
+        bumpMap: deckTex.bumpMap,
+        bumpScale: 0.14,
+        roughness: 0.52,
+        metalness: 0.58
+      }),
+      deckDark: new THREE.MeshStandardMaterial({
+        color: 0x334155,
+        map: darkDeckTex.map,
+        bumpMap: darkDeckTex.bumpMap,
+        bumpScale: 0.14,
+        roughness: 0.62,
+        metalness: 0.48
+      }),
+      moduleWhite: new THREE.MeshStandardMaterial({
+        color: 0xf8fafc,
+        map: whitePanelTex.map,
+        bumpMap: whitePanelTex.bumpMap,
+        bumpScale: 0.08,
+        roughness: 0.35,
+        metalness: 0.2
+      }),
+      moduleBlue: new THREE.MeshStandardMaterial({
+        color: 0x0284c7,
+        map: bluePanelTex.map,
+        bumpMap: bluePanelTex.bumpMap,
+        bumpScale: 0.08,
+        roughness: 0.38,
+        metalness: 0.32
+      }),
+      safetyOrange: new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.34, metalness: 0.28 }),
+      safetyRed: new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.34, metalness: 0.32 }),
+      pipeIndustrial: new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.28, metalness: 0.78 }),
+      subseaPipe: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.52, metalness: 0.58 }),
+      windowGlow: new THREE.MeshStandardMaterial({
+        color: 0xfef08a,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 0.72,
+        roughness: 0.18,
+        metalness: 0.25
+      }),
+      pipeGas: new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.3, metalness: 0.7 }),
+      pipeCondensate: new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.3, metalness: 0.7 }),
+      pipeUtility: new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.34, metalness: 0.62 }),
+      helideck: new THREE.MeshStandardMaterial({ map: createHelipadTexture(), roughness: 0.54, metalness: 0.22 }),
+      beaconGreen: new THREE.MeshBasicMaterial({ color: 0x22c55e }),
+      beaconRed: new THREE.MeshBasicMaterial({ color: 0xef4444 })
+    };
+
+    // =========================================================================
+    // 5. OCEAN, SEABED, COASTLINE & SUBSEA TRUNK PIPELINE
+    // =========================================================================
+    // Double-sided ocean surface visible from above and below water
+    const oceanGeo = new THREE.PlaneGeometry(1800, 1800, 96, 96);
+    oceanGeo.rotateX(-Math.PI / 2);
+    const oceanMat = new THREE.MeshStandardMaterial({
+      color: 0x0284c7,
+      transparent: true,
+      opacity: 0.76,
+      roughness: 0.18,
+      metalness: 0.65,
+      side: THREE.DoubleSide
+    });
+    const oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
+    oceanMesh.receiveShadow = true;
+    scene.add(oceanMesh);
+
+    const oceanBasePos = oceanGeo.attributes.position.array.slice();
+
+    // Seabed terrain at -38m with subtle sand ripples
+    const seabedGeo = new THREE.PlaneGeometry(1800, 1800, 80, 80);
+    seabedGeo.rotateX(-Math.PI / 2);
+    const sbPos = seabedGeo.attributes.position;
+    for (let i = 0; i < sbPos.count; i++) {
+      const x = sbPos.getX(i);
+      const z = sbPos.getZ(i);
+      let y = CONFIG.seabedDepth + Math.sin(x * 0.04) * 0.8 + Math.cos(z * 0.05) * 0.8;
+      // Gently slope up near eastern shoreline
+      if (x > 330) {
+        const shoreFactor = Math.min(1, (x - 330) / 140);
+        y = THREE.MathUtils.lerp(y, 4.5, shoreFactor * shoreFactor);
+      }
+      sbPos.setY(i, y);
+    }
+    seabedGeo.computeVertexNormals();
+    const seabedMat = new THREE.MeshStandardMaterial({
+      color: 0x1e3a4c,
+      roughness: 0.92,
+      metalness: 0.05
+    });
+    const seabedMesh = new THREE.Mesh(seabedGeo, seabedMat);
+    seabedMesh.receiveShadow = true;
+    scene.add(seabedMesh);
+
+    // Subsea Coral / Rock Outcrops around the platform jackets
+    function buildSeabedRocksAndCorals() {
+      const rockMat = new THREE.MeshStandardMaterial({ color: 0x264653, roughness: 0.9 });
+      const coralColors = [0xf43f5e, 0xf59e0b, 0x14b8a6, 0xa855f7];
+
+      for (let i = 0; i < 65; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 15 + Math.random() * 190;
+        const rx = Math.cos(angle) * radius;
+        const rz = Math.sin(angle) * radius;
+
+        const rock = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(1.4 + Math.random() * 2.8, 1),
+          rockMat
+        );
+        rock.position.set(rx, CONFIG.seabedDepth + 0.6, rz);
+        rock.scale.set(1.2, 0.65, 1.1);
+        rock.rotation.y = Math.random() * Math.PI;
+        scene.add(rock);
+
+        if (i % 2 === 0) {
+          const coral = new THREE.Mesh(
+            new THREE.ConeGeometry(0.8 + Math.random() * 0.8, 1.8 + Math.random() * 1.4, 7),
+            new THREE.MeshStandardMaterial({
+              color: coralColors[i % coralColors.length],
+              roughness: 0.65
+            })
+          );
+          coral.position.set(rx + 0.8, CONFIG.seabedDepth + 1.5, rz - 0.5);
+          scene.add(coral);
+        }
+      }
+    }
+    buildSeabedRocksAndCorals();
+
+    // Shore Receiving Gas Terminal & Coastal Beach on the East Horizon (x = 460)
+    function buildShorelineAndTerminal() {
+      const shoreGroup = new THREE.Group();
+
+      // Sandy Peninsula
+      const beach = new THREE.Mesh(
+        new THREE.BoxGeometry(240, 12, 1600),
+        new THREE.MeshStandardMaterial({ color: 0xd6b88d, roughness: 0.88 })
+      );
+      beach.position.set(CONFIG.shoreX + 85, 2.5, 0);
+      beach.receiveShadow = true;
+      shoreGroup.add(beach);
+
+      // Coastal Gas Receiving Terminal Facility
+      const terminalPad = new THREE.Mesh(
+        new THREE.BoxGeometry(85, 2, 120),
+        new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 })
+      );
+      terminalPad.position.set(CONFIG.shoreX + 42, 6.2, 0);
+      terminalPad.receiveShadow = true;
+      shoreGroup.add(terminalPad);
+
+      // Shore Gas Storage Spheres & Processing Tanks
+      const tankColors = [0xf8fafc, 0x0284c7, 0xf59e0b];
+      for (let t = 0; t < 3; t++) {
+        const tank = new THREE.Mesh(
+          new THREE.CylinderGeometry(8.5, 8.5, 18, 24),
+          new THREE.MeshStandardMaterial({ color: tankColors[t], roughness: 0.4, metalness: 0.35 })
+        );
+        tank.position.set(CONFIG.shoreX + 48, 16.2, -32 + t * 32);
+        tank.castShadow = true;
+        shoreGroup.add(tank);
+      }
+
+      // Shore Control & Metering Building
+      const controlHouse = new THREE.Mesh(
+        new THREE.BoxGeometry(18, 8.5, 24),
+        materials.moduleWhite
+      );
+      controlHouse.position.set(CONFIG.shoreX + 20, 11.4, 0);
+      controlHouse.castShadow = true;
+      shoreGroup.add(controlHouse);
+
+      scene.add(shoreGroup);
+      return shoreGroup;
+    }
+    buildShorelineAndTerminal();
+
+    // Main Subsea Export Trunkline from Central Processing Platform to Shore Terminal
+    function buildShoreTrunkline() {
+      const curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(CONFIG.centralPos.x + 14, 12, CONFIG.centralPos.z),
+        new THREE.Vector3(45, CONFIG.seabedDepth + 1.1, 4),
+        new THREE.Vector3(165, CONFIG.seabedDepth + 1.0, -6),
+        new THREE.Vector3(295, CONFIG.seabedDepth + 1.0, 2),
+        new THREE.Vector3(385, -4, 0),
+        new THREE.Vector3(CONFIG.shoreX + 18, 8.5, 0)
+      ]);
+      const trunkGeo = new THREE.TubeGeometry(curve, 110, 0.95, 16, false);
+      const trunkMesh = new THREE.Mesh(trunkGeo, materials.subseaPipe);
+      trunkMesh.castShadow = true;
+      scene.add(trunkMesh);
+
+      // Pipeline Marker Buoy near mid-field
+      const buoyGroup = new THREE.Group();
+      buoyGroup.position.set(145, 0, -6);
+      const buoyFloat = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.5, 1.4, 16), materials.safetyOrange);
+      buoyFloat.position.y = 0.4;
+      const buoyTower = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.75, 4.2, 12), materials.jacketYellow);
+      buoyTower.position.y = 2.6;
+      const buoyBeacon = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 10), materials.beaconGreen);
+      buoyBeacon.position.y = 4.9;
+      buoyGroup.add(buoyFloat, buoyTower, buoyBeacon);
+      scene.add(buoyGroup);
+    }
+    buildShoreTrunkline();
+
+    // =========================================================================
+    // 6. OFFSHORE JACKET SUBSTRUCTURE & TOPSIDE PLATFORM BUILDERS
+    // =========================================================================
+    function createJacketStructure(topWidth, topDepth, deckY, legRadius = 0.65) {
+      const jacket = new THREE.Group();
+      const bottomY = CONFIG.seabedDepth;
+      const height = deckY - bottomY;
+      const midY = bottomY + height * 0.5;
+
+      const spreadFactor = 1.38;
+      const hwTop = topWidth * 0.5;
+      const hdTop = topDepth * 0.5;
+      const hwBot = hwTop * spreadFactor;
+      const hdBot = hdTop * spreadFactor;
+
+      const topCorners = [
+        new THREE.Vector3(-hwTop, deckY, -hdTop),
+        new THREE.Vector3(hwTop, deckY, -hdTop),
+        new THREE.Vector3(hwTop, deckY, hdTop),
+        new THREE.Vector3(-hwTop, deckY, hdTop)
+      ];
+      const botCorners = [
+        new THREE.Vector3(-hwBot, bottomY, -hdBot),
+        new THREE.Vector3(hwBot, bottomY, -hdBot),
+        new THREE.Vector3(hwBot, bottomY, hdBot),
+        new THREE.Vector3(-hwBot, bottomY, hdBot)
+      ];
+
+      // 4 Main battered jacket legs (higher segment resolution)
+      for (let i = 0; i < 4; i++) {
+        const p1 = topCorners[i];
+        const p2 = botCorners[i];
+        const len = p1.distanceTo(p2);
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(legRadius, legRadius * 1.18, len, 20), materials.jacketYellow);
+        leg.position.copy(p1).add(p2).multiplyScalar(0.5);
+        leg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), p1.clone().sub(p2).normalize());
+        leg.castShadow = true;
+        jacket.add(leg);
+      }
+
+      // Horizontal & X-bracing tiers from seabed to deck
+      const levels = [-32, -20, -8, 4];
+      levels.forEach((ly, idx) => {
+        const t = (ly - bottomY) / height;
+        const levelPts = topCorners.map((tc, i) => new THREE.Vector3().lerpVectors(botCorners[i], tc, t));
+
+        for (let i = 0; i < 4; i++) {
+          const a = levelPts[i];
+          const b = levelPts[(i + 1) % 4];
+          const dist = a.distanceTo(b);
+          const beam = new THREE.Mesh(new THREE.CylinderGeometry(legRadius * 0.42, legRadius * 0.42, dist, 14), materials.jacketYellow);
+          beam.position.copy(a).add(b).multiplyScalar(0.5);
+          beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+          jacket.add(beam);
+
+          // Diagonal brace to next level up
+          if (idx < levels.length - 1) {
+            const nextT = (levels[idx + 1] - bottomY) / height;
+            const nextB = new THREE.Vector3().lerpVectors(botCorners[(i + 1) % 4], topCorners[(i + 1) % 4], nextT);
+            const diagLen = a.distanceTo(nextB);
+            const diag = new THREE.Mesh(new THREE.CylinderGeometry(legRadius * 0.34, legRadius * 0.34, diagLen, 14), materials.jacketYellow);
+            diag.position.copy(a).add(nextB).multiplyScalar(0.5);
+            diag.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), nextB.clone().sub(a).normalize());
+            jacket.add(diag);
+          }
+        }
+      });
+
+      // Vertical conductor / riser pipes running down into the seabed
+      const riser = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, height, 20), materials.subseaPipe);
+      riser.position.set(0, midY, 0);
+      jacket.add(riser);
+
+      return jacket;
+    }
+
+    // Helper to build crisp multi-bar safety railing around rectangular decks
+    function addDeckHandrails(parentGroup, width, depth, baseY, height = 1.05, postSpacing = 3.5) {
+      const railGroup = new THREE.Group();
+      const postGeo = new THREE.CylinderGeometry(0.055, 0.055, height, 8);
+      const topBarMat = materials.jacketYellow;
+      const midBarMat = materials.pipeIndustrial;
+
+      const xCols = Math.max(2, Math.round(width / postSpacing) + 1);
+      const zCols = Math.max(2, Math.round(depth / postSpacing) + 1);
+
+      for (let i = 0; i < xCols; i++) {
+        const px = -width / 2 + (i / (xCols - 1)) * width;
+        [-depth / 2, depth / 2].forEach((pz) => {
+          const post = new THREE.Mesh(postGeo, topBarMat);
+          post.position.set(px, baseY + height / 2, pz);
+          railGroup.add(post);
+        });
+      }
+      for (let j = 1; j < zCols - 1; j++) {
+        const pz = -depth / 2 + (j / (zCols - 1)) * depth;
+        [-width / 2, width / 2].forEach((px) => {
+          const post = new THREE.Mesh(postGeo, topBarMat);
+          post.position.set(px, baseY + height / 2, pz);
+          railGroup.add(post);
+        });
+      }
+
+      // Top & mid rails along X and Z edges
+      [-depth / 2, depth / 2].forEach((pz) => {
+        const topX = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, width, 8), topBarMat);
+        topX.rotation.z = Math.PI / 2;
+        topX.position.set(0, baseY + height, pz);
+
+        const midX = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, width, 8), midBarMat);
+        midX.rotation.z = Math.PI / 2;
+        midX.position.set(0, baseY + height * 0.52, pz);
+        railGroup.add(topX, midX);
+      });
+
+      [-width / 2, width / 2].forEach((px) => {
+        const topZ = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, depth, 8), topBarMat);
+        topZ.rotation.x = Math.PI / 2;
+        topZ.position.set(px, baseY + height, 0);
+
+        const midZ = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, depth, 8), midBarMat);
+        midZ.rotation.x = Math.PI / 2;
+        midZ.position.set(px, baseY + height * 0.52, 0);
+        railGroup.add(topZ, midZ);
+      });
+
+      parentGroup.add(railGroup);
+    }
+
+    // 5A. Build Main Living Quarters (LQ) Platform with Octagonal Helideck, Staircases, HVAC & Davits
+    function buildLivingQuartersPlatform() {
+      const lq = new THREE.Group();
+      lq.position.copy(CONFIG.lqPos);
+
+      // Substructure jacket + boat landing fenders
+      lq.add(createJacketStructure(16, 16, 12, 0.78));
+      [-7.5, 7.5].forEach((xOff) => {
+        const fender = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 9.5, 16), materials.safetyOrange);
+        fender.position.set(xOff, 2.5, 9.6);
+        lq.add(fender);
+      });
+
+      // Main cellar & weather deck
+      const mainDeck = new THREE.Mesh(new THREE.BoxGeometry(21, 2.2, 21), materials.deckSteel);
+      mainDeck.position.y = 12.5;
+      mainDeck.castShadow = true;
+      mainDeck.receiveShadow = true;
+      lq.add(mainDeck);
+
+      // Crisp multi-bar safety handrails around main deck
+      addDeckHandrails(lq, 20.8, 20.8, 13.6, 1.05, 3.4);
+
+      // 4-Story Modular Accommodation Block
+      const accomBlock = new THREE.Mesh(new THREE.BoxGeometry(15.2, 11.8, 14.4), materials.moduleWhite);
+      accomBlock.position.set(1.5, 19.4, 0);
+      accomBlock.castShadow = true;
+      accomBlock.receiveShadow = true;
+      lq.add(accomBlock);
+
+      // Architectural blue & amber stripes
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(15.4, 1.4, 14.6), materials.moduleBlue);
+      stripe.position.set(1.5, 23.8, 0);
+      lq.add(stripe);
+
+      // External cantilevered walkways, railings & zig-zag staircases on front/rear facades
+      for (let floor = 0; floor < 4; floor++) {
+        const wy = 14.6 + floor * 2.7;
+        const catwalk = new THREE.Mesh(new THREE.BoxGeometry(14.5, 0.25, 1.2), materials.deckSteel);
+        catwalk.position.set(1.5, wy, 7.75);
+        lq.add(catwalk);
+
+        const walkRailTop = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 14.5, 8), materials.jacketYellow);
+        walkRailTop.rotation.z = Math.PI / 2;
+        walkRailTop.position.set(1.5, wy + 0.95, 8.32);
+        lq.add(walkRailTop);
+
+        if (floor < 3) {
+          const stair = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.22, 0.95), materials.jacketYellow);
+          stair.position.set(-2.5 + floor * 2.2, wy + 1.35, 7.85);
+          stair.rotation.z = 0.65;
+          lq.add(stair);
+        }
+
+        // Illuminated Cabin Windows (4 rows, front & back) with window frames
+        for (let col = -2; col <= 2; col++) {
+          const winFront = new THREE.Mesh(new THREE.PlaneGeometry(1.45, 0.92), materials.windowGlow);
+          winFront.position.set(1.5 + col * 2.5, wy + 0.85, 7.25);
+          const frameFront = new THREE.Mesh(new THREE.BoxGeometry(1.58, 1.04, 0.1), materials.deckDark);
+          frameFront.position.set(1.5 + col * 2.5, wy + 0.85, 7.21);
+          lq.add(winFront, frameFront);
+
+          const winBack = new THREE.Mesh(new THREE.PlaneGeometry(1.45, 0.92), materials.windowGlow);
+          winBack.position.set(1.5 + col * 2.5, wy + 0.85, -7.25);
+          winBack.rotation.y = Math.PI;
+          const frameBack = frameFront.clone();
+          frameBack.position.z = -7.21;
+          lq.add(winBack, frameBack);
+        }
+      }
+
+      // Rooftop HVAC Chiller Units with Fans & Dual Satellite Radomes
+      for (let i = 0; i < 3; i++) {
+        const hvac = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.5, 2.2), materials.deckSteel);
+        hvac.position.set(-1.5 + i * 3.4, 26.0, 3.6);
+        hvac.castShadow = true;
+        const fanRing = new THREE.Mesh(new THREE.TorusGeometry(0.68, 0.08, 10, 20), materials.deckDark);
+        fanRing.rotation.x = Math.PI / 2;
+        fanRing.position.set(-1.5 + i * 3.4, 26.8, 3.6);
+        lq.add(hvac, fanRing);
+      }
+
+      const satDome1 = new THREE.Mesh(new THREE.SphereGeometry(1.15, 24, 20), materials.moduleWhite);
+      satDome1.position.set(2.4, 26.3, 4.2);
+      const satDome2 = new THREE.Mesh(new THREE.SphereGeometry(1.45, 24, 20), materials.moduleWhite);
+      satDome2.position.set(5.8, 26.5, 4.2);
+      lq.add(satDome1, satDome2);
+
+      // Cantilevered Octagonal Helideck on West Side with Truss Support
+      const helipadGroup = new THREE.Group();
+      helipadGroup.position.set(-10.2, 25.8, 0);
+
+      // Steel truss under-support tied into LQ frame
+      const heliPedestal = new THREE.Mesh(new THREE.CylinderGeometry(3.8, 2.2, 3.4, 16), materials.deckDark);
+      heliPedestal.position.set(1.2, -1.8, 0);
+      helipadGroup.add(heliPedestal);
+
+      const strutL = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 8.5, 12), materials.jacketYellow);
+      strutL.position.set(3.2, -3.2, -3.6);
+      strutL.rotation.z = -0.68;
+      const strutR = strutL.clone();
+      strutR.position.z = 3.6;
+      helipadGroup.add(strutL, strutR);
+
+      // Octagonal Helideck Plate (radius 10.2m, thickness 0.65m -> top surface at local y = +0.325)
+      const heliDeck = new THREE.Mesh(new THREE.CylinderGeometry(10.2, 10.2, 0.65, 8), materials.helideck);
+      heliDeck.rotation.y = Math.PI / 8;
+      heliDeck.receiveShadow = true;
+      heliDeck.castShadow = true;
+      helipadGroup.add(heliDeck);
+      state.helipadDeckMesh = heliDeck;
+
+      // Perimeter Safety Netting Shelf around Octagon
+      const safetyNet = new THREE.Mesh(
+        new THREE.CylinderGeometry(11.4, 10.3, 0.25, 16, 1, true),
+        new THREE.MeshBasicMaterial({ color: 0x94a3b8, wireframe: true, side: THREE.DoubleSide })
+      );
+      safetyNet.rotation.y = Math.PI / 8;
+      safetyNet.position.y = -0.15;
+      helipadGroup.add(safetyNet);
+
+      // Perimeter Green Approach Lights & Dual Fire-Fighting Foam Monitors
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2;
+        const light = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 12), materials.beaconGreen);
+        light.position.set(Math.cos(a) * 9.85, 0.42, Math.sin(a) * 9.85);
+        helipadGroup.add(light);
+      }
+
+      // Dual Red Fire-Fighting Foam Monitors
+      [-7.8, 7.8].forEach((zFoam) => {
+        const monitorBase = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 1.3, 14), materials.safetyRed);
+        monitorBase.position.set(-5.8, 0.85, zFoam);
+        const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.4, 12), materials.safetyRed);
+        nozzle.position.set(-5.3, 1.55, zFoam);
+        nozzle.rotation.z = -0.75;
+        helipadGroup.add(monitorBase, nozzle);
+      });
+
+      // Illuminated Orange/White Windsock on Helideck Mast
+      const sockMast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 4.2, 12), materials.moduleWhite);
+      sockMast.position.set(-7.5, 2.1, -6.2);
+      const windsock = new THREE.Mesh(new THREE.ConeGeometry(0.45, 2.4, 16, 4, true), materials.safetyOrange);
+      windsock.rotation.z = Math.PI / 2;
+      windsock.position.set(-6.2, 4.0, -6.2);
+      helipadGroup.add(sockMast, windsock);
+      state.windsockMesh = windsock;
+
+      lq.add(helipadGroup);
+
+      // Twin Free-Fall / Davit Orange Safety Lifeboats (TEMPSC) with Davit Arms
+      [-9.4, 9.4].forEach((zSide) => {
+        const boatGroup = new THREE.Group();
+        boatGroup.position.set(7.8, 14.2, zSide);
+        const hull = new THREE.Mesh(new THREE.BoxGeometry(5.6, 1.85, 2.3), materials.safetyOrange);
+        const canopy = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.05, 4.8, 16), materials.moduleWhite);
+        canopy.rotation.z = Math.PI / 2;
+        canopy.position.y = 0.92;
+        const davitA = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.2, 1.6), materials.jacketYellow);
+        davitA.position.set(-2.4, 1.2, zSide > 0 ? -0.9 : 0.9);
+        const davitB = davitA.clone();
+        davitB.position.x = 2.4;
+        boatGroup.add(hull, canopy, davitA, davitB);
+        lq.add(boatGroup);
+      });
+
+      // Rooftop Communications & Radar Mast with Rotating Scanner Bar
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.55, 9.5, 14), materials.moduleWhite);
+      mast.position.set(6.5, 30.0, -4.2);
+      lq.add(mast);
+
+      const radarScanner = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.28, 0.42), materials.moduleWhite);
+      radarScanner.position.set(6.5, 32.8, -4.2);
+      lq.add(radarScanner);
+
+      const radome = new THREE.Mesh(new THREE.SphereGeometry(1.25, 24, 20), materials.moduleWhite);
+      radome.position.set(6.5, 34.8, -4.2);
+      lq.add(radome);
+
+      const topBeacon = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 12), materials.beaconRed);
+      topBeacon.position.set(6.5, 36.2, -4.2);
+      lq.add(topBeacon);
+
+      scene.add(lq);
+
+      // Compute exact world-space center & top deck elevation of the helipad
+      lq.updateMatrixWorld(true);
+      const exactHeliTop = new THREE.Vector3(0, 0.325, 0);
+      heliDeck.localToWorld(exactHeliTop);
+      CONFIG.helipadWorldPos.copy(exactHeliTop);
+
+      return lq;
+    }
+
+    // 5B. Build Central Processing Platform (CPP) with Slug Catchers, Pipe Racks, Crane & Flare
+    function buildCentralProcessingPlatform() {
+      const cpp = new THREE.Group();
+      cpp.position.copy(CONFIG.centralPos);
+
+      // Heavy 8-leg style twin-jacket substructure
+      const jacketA = createJacketStructure(22, 26, 13, 1.05);
+      jacketA.position.x = -7;
+      const jacketB = createJacketStructure(22, 26, 13, 1.05);
+      jacketB.position.x = 7;
+      cpp.add(jacketA, jacketB);
+
+      // Multi-tier Topside Decks + Perimeter Safety Handrails
+      const cellarDeck = new THREE.Mesh(new THREE.BoxGeometry(39, 2.2, 29), materials.deckDark);
+      cellarDeck.position.y = 13.2;
+      cellarDeck.castShadow = true;
+      cellarDeck.receiveShadow = true;
+      cpp.add(cellarDeck);
+
+      const mainProcessDeck = new THREE.Mesh(new THREE.BoxGeometry(37, 1.6, 27), materials.deckSteel);
+      mainProcessDeck.position.y = 19.5;
+      mainProcessDeck.castShadow = true;
+      mainProcessDeck.receiveShadow = true;
+      cpp.add(mainProcessDeck);
+      addDeckHandrails(cpp, 36.6, 26.6, 20.3, 1.05, 4.5);
+
+      const upperMezzanine = new THREE.Mesh(new THREE.BoxGeometry(16, 1.1, 14), materials.deckDark);
+      upperMezzanine.position.set(-8, 25.4, 5.5);
+      upperMezzanine.castShadow = true;
+      cpp.add(upperMezzanine);
+      addDeckHandrails(cpp, 15.6, 13.6, 25.95, 0.95, 3.8);
+      upperMezzanine.parent.children[upperMezzanine.parent.children.length - 1].position.set(-8, 0, 5.5);
+
+      // Vertical support columns between decks
+      for (let x = -16; x <= 16; x += 8) {
+        for (let z = -11; z <= 11; z += 11) {
+          const col = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 5.5, 14), materials.deckSteel);
+          col.position.set(x, 16.5, z);
+          cpp.add(col);
+        }
+      }
+
+      // Vertical Gas Separation & Dehydration Scrubbers + Flanges & Maintenance Rings
+      for (let i = 0; i < 4; i++) {
+        const scrubber = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 11.2, 28), materials.moduleWhite);
+        scrubber.position.set(-13 + i * 4.5, 25.5, -7.2);
+        scrubber.castShadow = true;
+        cpp.add(scrubber);
+
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(1.9, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2), materials.moduleBlue);
+        cap.position.set(-13 + i * 4.5, 31.1, -7.2);
+        cpp.add(cap);
+
+        // Dual flange rings & maintenance platform ring
+        [-2.8, 2.8].forEach((yOff) => {
+          const flange = new THREE.Mesh(new THREE.TorusGeometry(1.98, 0.09, 10, 28), materials.pipeIndustrial);
+          flange.rotation.x = Math.PI / 2;
+          flange.position.set(-13 + i * 4.5, 25.5 + yOff, -7.2);
+          cpp.add(flange);
+        });
+
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(2.25, 0.12, 10, 28), materials.jacketYellow);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.set(-13 + i * 4.5, 28.0, -7.2);
+        cpp.add(ring);
+      }
+
+      // Shell-and-Tube Heat Exchanger Banks with End Caps
+      for (let i = 0; i < 3; i++) {
+        const hx = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 8.5, 24), materials.pipeIndustrial);
+        hx.rotation.z = Math.PI / 2;
+        const hxp = [10.5, 21.6 + (i % 2) * 2.5, 7.5 - Math.floor(i / 2) * 3.2];
+        hx.position.set(...hxp);
+        hx.castShadow = true;
+        const endCap = new THREE.Mesh(new THREE.SphereGeometry(1.15, 20, 14), materials.moduleBlue);
+        endCap.position.set(hxp[0] + 4.25, hxp[1], hxp[2]);
+        cpp.add(hx, endCap);
+      }
+
+      // Horizontal High-Pressure Export Compressors with Cooling Louvers & Exhaust Stacks
+      for (let i = 0; i < 2; i++) {
+        const compHouse = new THREE.Mesh(new THREE.BoxGeometry(11.5, 5.6, 6.6), materials.moduleBlue);
+        compHouse.position.set(9.5, 22.8, -6.2 + i * 8.8);
+        compHouse.castShadow = true;
+        cpp.add(compHouse);
+
+        const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.88, 7.4, 20), materials.pipeIndustrial);
+        exhaust.position.set(12.5, 28.6, -6.2 + i * 8.8);
+        cpp.add(exhaust);
+      }
+
+      // Overhead Color-Coded Pipe Rack (Gas = Yellow, Condensate = Blue, Utility = Green)
+      const pipeRuns = [
+        { pos: [0, 23.6, -1.2], len: 32, rotZ: Math.PI / 2, r: 0.52, mat: materials.pipeGas },
+        { pos: [0, 23.6, 0.2], len: 32, rotZ: Math.PI / 2, r: 0.44, mat: materials.pipeCondensate },
+        { pos: [0, 23.6, 1.4], len: 32, rotZ: Math.PI / 2, r: 0.36, mat: materials.pipeUtility },
+        { pos: [-3, 25.0, 2.8], len: 26, rotZ: Math.PI / 2, r: 0.45, mat: materials.pipeGas },
+        { pos: [4, 26.4, -2.5], len: 20, rotX: Math.PI / 2, r: 0.48, mat: materials.pipeCondensate }
+      ];
+      pipeRuns.forEach((p) => {
+        const pipe = new THREE.Mesh(new THREE.CylinderGeometry(p.r, p.r, p.len, 18), p.mat);
+        pipe.position.set(...p.pos);
+        if (p.rotZ) pipe.rotation.z = p.rotZ;
+        if (p.rotX) pipe.rotation.x = p.rotX;
+        cpp.add(pipe);
+      });
+
+      // Detailed Lattice Pedestal Offshore Crane with Cab, Boom & Hook Block
+      const craneGroup = new THREE.Group();
+      craneGroup.position.set(-14, 20.3, 10.5);
+      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.45, 7.2, 20), materials.jacketYellow);
+      pedestal.position.y = 3.6;
+      const cab = new THREE.Mesh(new THREE.BoxGeometry(2.9, 2.5, 2.5), materials.moduleWhite);
+      cab.position.set(0, 7.8, 0);
+      const cabWindow = new THREE.Mesh(
+        new THREE.BoxGeometry(2.2, 1.2, 0.2),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1, metalness: 0.8 })
+      );
+      cabWindow.position.set(0, 8.0, 1.25);
+
+      const boom = new THREE.Mesh(
+        new THREE.BoxGeometry(1.05, 1.15, 24),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, wireframe: true })
+      );
+      boom.position.set(0, 13.5, 9.2);
+      boom.rotation.x = -0.46;
+
+      // Suspended Hoist Cable & Hook Block
+      const hookGroup = new THREE.Group();
+      hookGroup.position.set(0, 18.2, 19.2);
+      const hoistCable = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 8.5, 10), materials.deckDark);
+      hoistCable.position.y = -4.25;
+      const hookBlock = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.1, 0.65), materials.safetyOrange);
+      hookBlock.position.y = -8.6;
+      hookGroup.add(hoistCable, hookBlock);
+      state.craneHookGroup = hookGroup;
+
+      craneGroup.add(pedestal, cab, cabWindow, boom, hookGroup);
+      cpp.add(craneGroup);
+
+      // Angled Cantilevered Flare Boom with Heat Windshield & Multi-Tip Burner
+      const flareGroup = new THREE.Group();
+      flareGroup.position.set(17, 20, -11);
+
+      const boomLen = 46;
+      const flareBoom = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.75, 1.5, boomLen, 12),
+        new THREE.MeshStandardMaterial({ color: 0xdc2626, wireframe: true })
+      );
+      flareBoom.position.set(14.5, 17.5, -9.2);
+      flareBoom.rotation.z = -0.62;
+      flareBoom.rotation.x = -0.35;
+      flareGroup.add(flareBoom);
+
+      // Flare Gas Riser Pipe inside Boom
+      const flarePipe = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.48, boomLen, 16), materials.pipeIndustrial);
+      flarePipe.position.copy(flareBoom.position);
+      flarePipe.rotation.copy(flareBoom.rotation);
+      flareGroup.add(flarePipe);
+
+      // Heat Radiation Windshield & Multi-Tip Flare Stack
+      const heatShield = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.4, 0.35), materials.moduleWhite);
+      heatShield.position.set(25.2, 31.2, -15.8);
+      heatShield.rotation.y = 0.65;
+      flareGroup.add(heatShield);
+
+      const flareTip = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 0.9, 3.6, 20), materials.deckDark);
+      flareTip.position.set(27.5, 33.5, -17.4);
+      flareGroup.add(flareTip);
+      cpp.add(flareGroup);
+
+      // Update flareLight position to match flareTip world coords
+      flareLight.position.set(17 + 27.5, 20 + 35.2, -11 - 17.4);
+
+      scene.add(cpp);
+      return cpp;
+    }
+
+    // 5C. Pedestrian & Utility Truss Bridge linking LQ and Central Processing Platform
+    function buildConnectingBridge() {
+      const start = new THREE.Vector3(CONFIG.lqPos.x + 10.5, 15.5, CONFIG.lqPos.z - 2);
+      const end = new THREE.Vector3(CONFIG.centralPos.x - 19, 15.5, CONFIG.centralPos.z + 2);
+      const len = start.distanceTo(end);
+      const mid = start.clone().add(end).multiplyScalar(0.5);
+
+      const bridgeGroup = new THREE.Group();
+      bridgeGroup.position.copy(mid);
+      bridgeGroup.lookAt(end);
+
+      const walkway = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, len), materials.deckSteel);
+      const truss = new THREE.Mesh(
+        new THREE.BoxGeometry(2.8, 2.6, len),
+        new THREE.MeshBasicMaterial({ color: 0xfacc15, wireframe: true })
+      );
+      truss.position.y = 1.4;
+
+      const utilityPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, len, 10), materials.pipeIndustrial);
+      utilityPipe.rotation.x = Math.PI / 2;
+      utilityPipe.position.set(1.5, 0.6, 0);
+
+      bridgeGroup.add(walkway, truss, utilityPipe);
+      scene.add(bridgeGroup);
+    }
+
+    buildLivingQuartersPlatform();
+    buildCentralProcessingPlatform();
+    buildConnectingBridge();
+
+    // Animated Flare Flame Particles
+    function initFlareParticles() {
+      const flameOrigin = new THREE.Vector3(44.5, 55.2, -28.4);
+      const flameMat = new THREE.MeshBasicMaterial({ color: 0xff9e00, transparent: true, opacity: 0.85 });
+
+      for (let i = 0; i < 26; i++) {
+        const p = new THREE.Mesh(new THREE.SphereGeometry(0.9 + Math.random() * 1.1, 8, 8), flameMat.clone());
+        p.position.copy(flameOrigin);
+        p.userData = {
+          origin: flameOrigin.clone(),
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.8 + Math.random() * 1.2,
+          offset: Math.random()
+        };
+        scene.add(p);
+        state.flameParticles.push(p);
+      }
+    }
+    initFlareParticles();
+
+    // =========================================================================
+    // 7. SATELLITE WELLHEAD PLATFORMS (MOVABLE & ADDABLE WITH DYNAMIC FLOWLINES)
+    // =========================================================================
+    const whpGroupContainer = new THREE.Group();
+    scene.add(whpGroupContainer);
+
+    function createWellheadLabelSprite(text) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+      ctx.beginPath();
+      ctx.roundRect(16, 8, 224, 48, 12);
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 26px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 128, 33);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+      sprite.scale.set(11, 2.75, 1);
+      return sprite;
+    }
+
+    function buildSubseaFlowlineGeometry(whpPos) {
+      // Connects WHP seabed manifold to Central Processing Platform subsea riser base
+      const startTop = new THREE.Vector3(whpPos.x, 8, whpPos.z);
+      const startBot = new THREE.Vector3(whpPos.x, CONFIG.seabedDepth + 0.8, whpPos.z);
+      const mid1 = new THREE.Vector3(whpPos.x * 0.65, CONFIG.seabedDepth + 0.65, whpPos.z * 0.65 + 4);
+      const mid2 = new THREE.Vector3(whpPos.x * 0.3, CONFIG.seabedDepth + 0.65, whpPos.z * 0.3 - 3);
+      const endBot = new THREE.Vector3(0, CONFIG.seabedDepth + 0.8, 0);
+      const endTop = new THREE.Vector3(0, 12, 0);
+
+      const curve = new THREE.CatmullRomCurve3([startTop, startBot, mid1, mid2, endBot, endTop]);
+      return new THREE.TubeGeometry(curve, 52, 0.45, 10, false);
+    }
+
+    function addWellheadPlatform(x, z, silent = false) {
+      const idNum = state.nextWhpId++;
+      const code = `WHP-0${idNum}`;
+
+      const whpGroup = new THREE.Group();
+      whpGroup.position.set(x, 0, z);
+
+      // 4-Legged Yellow Satellite Jacket
+      const jacket = createJacketStructure(9, 9, 10.5, 0.52);
+      whpGroup.add(jacket);
+
+      // Wellhead Cellar & Topside Deck + Perimeter Handrails
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(12.5, 1.6, 12.5), materials.deckSteel);
+      deck.position.y = 11.2;
+      deck.castShadow = true;
+      deck.receiveShadow = true;
+      whpGroup.add(deck);
+      addDeckHandrails(whpGroup, 12.2, 12.2, 12.0, 0.95, 3.0);
+
+      // Christmas Tree Wellhead Valves (4 Gas Wells with Actuator Bonnet & Handwheels)
+      for (let wx = -2.2; wx <= 2.2; wx += 4.4) {
+        for (let wz = -2.2; wz <= 2.2; wz += 4.4) {
+          const tree = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.62, 3.2, 16), materials.safetyRed);
+          tree.position.set(wx, 13.6, wz);
+          const bonnet = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.34, 0.85, 14), materials.pipeIndustrial);
+          bonnet.position.set(wx, 15.5, wz);
+          whpGroup.add(tree, bonnet);
+
+          const valveWheel = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.08, 10, 18), materials.jacketYellow);
+          valveWheel.position.set(wx + 0.55, 13.8, wz);
+          valveWheel.rotation.y = Math.PI / 2;
+          whpGroup.add(valveWheel);
+        }
+      }
+
+      // Solar / Telemetry Control Shelter & Helideck Winch
+      const shelter = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.6, 3.2), materials.moduleWhite);
+      shelter.position.set(3.2, 13.3, 3.2);
+      whpGroup.add(shelter);
+
+      const solarPanel = new THREE.Mesh(
+        new THREE.BoxGeometry(3.2, 0.15, 2.2),
+        new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.2, metalness: 0.8 })
+      );
+      solarPanel.position.set(3.2, 15.1, 3.2);
+      solarPanel.rotation.x = 0.35;
+      whpGroup.add(solarPanel);
+
+      // Navigation Beacon
+      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 8), materials.beaconGreen);
+      beacon.position.set(-5.5, 14.5, -5.5);
+      whpGroup.add(beacon);
+
+      // Floating ID Badge
+      const label = createWellheadLabelSprite(code);
+      label.position.set(0, 18.2, 0);
+      whpGroup.add(label);
+
+      // Invisible larger hitbox for easy clicking & dragging
+      const hitBox = new THREE.Mesh(
+        new THREE.BoxGeometry(15, 22, 15),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      hitBox.position.y = 8;
+      whpGroup.add(hitBox);
+
+      whpGroupContainer.add(whpGroup);
+
+      // Subsea Flowline Tube connecting to Central Hub
+      const pipeGeo = buildSubseaFlowlineGeometry(whpGroup.position);
+      const pipeMesh = new THREE.Mesh(pipeGeo, materials.subseaPipe);
+      scene.add(pipeMesh);
+
+      const whpObj = {
+        id: idNum,
+        code,
+        group: whpGroup,
+        hitBox,
+        pipeMesh,
+        flowRate: Math.round(240 + Math.random() * 85),
+        pressure: Math.round(136 + Math.random() * 14)
+      };
+
+      hitBox.userData.whp = whpObj;
+      state.wellheads.push(whpObj);
+      updateTelemetryUI();
+
+      if (!silent) {
+        addLog(`[FIELD] Commissioned satellite ${code} & tied subsea flowline to CPP.`);
+        showAlert(`🛰️ Deployed & linked ${code} to Central Processing Hub`, 'emerald');
+      }
+
+      return whpObj;
+    }
+
+    function updateWellheadPosition(whpObj, newX, newZ) {
+      // Keep minimum safe clearance from Central Platform and shore
+      const clampedX = THREE.MathUtils.clamp(newX, -240, 290);
+      const clampedZ = THREE.MathUtils.clamp(newZ, -240, 240);
+      whpObj.group.position.set(clampedX, 0, clampedZ);
+
+      // Rebuild subsea pipeline geometry in real time
+      whpObj.pipeMesh.geometry.dispose();
+      whpObj.pipeMesh.geometry = buildSubseaFlowlineGeometry(whpObj.group.position);
+
+      if (state.selectedWhp === whpObj) {
+        updateInspectorUI(whpObj);
+      }
+    }
+
+    function removeWellheadPlatform(whpObj) {
+      if (state.wellheads.length <= 1) {
+        showAlert('⚠️ At least one active satellite wellhead must remain online.', 'amber');
+        return;
+      }
+      whpGroupContainer.remove(whpObj.group);
+      scene.remove(whpObj.pipeMesh);
+      whpObj.pipeMesh.geometry.dispose();
+
+      state.wellheads = state.wellheads.filter((w) => w !== whpObj);
+      if (state.selectedWhp === whpObj) {
+        state.selectedWhp = null;
+        document.getElementById('whp-inspector').classList.add('hidden');
+      }
+      updateTelemetryUI();
+      addLog(`[FIELD] Decommissioned ${whpObj.code} and isolated subsea riser.`);
+    }
+
+    // Spawn initial 5 satellite wellheads around the North Field
+    const initialWhpCoords = [
+      [-85, -62],
+      [-28, -98],
+      [58, -82],
+      [88, 52],
+      [-76, 78]
+    ];
+    initialWhpCoords.forEach(([x, z]) => addWellheadPlatform(x, z, true));
+
+    // =========================================================================
+    // 8. LOGISTICS: HELICOPTER & OFFSHORE SUPPLY VESSEL (OSV)
+    // =========================================================================
+    // 8A. High-Detail Twin-Engine Crew Transfer Helicopter (S-92 / AW139 Offshore Style)
+    function buildHelicopter() {
+      const heli = new THREE.Group();
+
+      // Sculpted Fuselage & Tapered Tail Cone
+      const body = new THREE.Mesh(new THREE.BoxGeometry(2.45, 2.15, 6.2), materials.safetyRed);
+      body.castShadow = true;
+
+      const cabinRoof = new THREE.Mesh(new THREE.CylinderGeometry(1.18, 1.22, 6.0, 14), materials.moduleWhite);
+      cabinRoof.rotation.x = Math.PI / 2;
+      cabinRoof.scale.set(1.0, 1.0, 0.52);
+      cabinRoof.position.set(0, 1.02, -0.1);
+
+      // Twin Top Turbine Engine Nacelles & Exhausts
+      [-0.62, 0.62].forEach((ex) => {
+        const nacelle = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 2.8, 12), materials.moduleWhite);
+        nacelle.rotation.x = Math.PI / 2;
+        nacelle.position.set(ex, 1.32, -0.55);
+        const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 0.8, 10), materials.deckDark);
+        exhaust.rotation.x = Math.PI / 2;
+        exhaust.position.set(ex, 1.35, -2.15);
+        heli.add(nacelle, exhaust);
+      });
+
+      // Aerodynamic Nose & Tinted Panoramic Cockpit Canopy
+      const nose = new THREE.Mesh(new THREE.SphereGeometry(1.22, 16, 14), materials.moduleWhite);
+      nose.scale.set(0.98, 0.86, 1.35);
+      nose.position.set(0, -0.15, 3.25);
+
+      const cockpitGlass = new THREE.Mesh(
+        new THREE.SphereGeometry(1.15, 16, 12),
+        new THREE.MeshStandardMaterial({ color: 0x09111e, roughness: 0.08, metalness: 0.9 })
+      );
+      cockpitGlass.scale.set(0.95, 0.82, 1.25);
+      cockpitGlass.position.set(0, 0.18, 3.38);
+
+      // Cabin Side Windows & White/Gold Livery Stripe
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.48, 6.3), materials.moduleWhite);
+      stripe.position.y = 0.15;
+
+      [-1.24, 1.24].forEach((wx) => {
+        for (let wz = -1.4; wz <= 1.4; wz += 1.4) {
+          const win = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.95, 0.65),
+            new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.15, metalness: 0.85 })
+          );
+          win.position.set(wx, 0.45, wz);
+          win.rotation.y = wx > 0 ? Math.PI / 2 : -Math.PI / 2;
+          heli.add(win);
+        }
+      });
+
+      // Side Sponsons & Retractable Tricycle Landing Gear Wheels (bottom sits at y = -1.52)
+      [-1.35, 1.35].forEach((sx) => {
+        const sponson = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.55, 2.6), materials.safetyRed);
+        sponson.position.set(sx, -0.78, -0.35);
+        const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.65, 8), materials.deckDark);
+        strut.position.set(sx, -1.05, -0.45);
+        const wheel = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.34, 0.34, 0.24, 14),
+          new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85 })
+        );
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(sx, -1.18, -0.45);
+        heli.add(sponson, strut, wheel);
+      });
+
+      // Nose Gear Strut & Wheel (bottom sits at y = -1.52)
+      const noseStrut = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.72, 8), materials.deckDark);
+      noseStrut.position.set(0, -1.0, 3.15);
+      const noseWheel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.28, 0.22, 14),
+        new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85 })
+      );
+      noseWheel.rotation.z = Math.PI / 2;
+      noseWheel.position.set(0, -1.24, 3.15);
+      heli.add(noseStrut, noseWheel);
+
+      // Tail boom, horizontal stabilizer & swept vertical fin
+      const tailBoom = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.72, 6.2, 12), materials.safetyRed);
+      tailBoom.rotation.x = Math.PI / 2;
+      tailBoom.position.set(0, 0.32, -5.8);
+
+      const hStab = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.14, 0.75), materials.moduleWhite);
+      hStab.position.set(0, 0.45, -8.3);
+
+      const tailFin = new THREE.Mesh(new THREE.BoxGeometry(0.26, 2.35, 1.25), materials.moduleWhite);
+      tailFin.position.set(0, 1.25, -8.45);
+      tailFin.rotation.x = -0.38;
+
+      // Anti-collision Red Strobe Light on Top of Tail Fin
+      // Rotor Hub Swashplate & 4-Blade Swept Main Rotor with Pitch Links
+      const mainRotor = new THREE.Group();
+      mainRotor.position.set(0, 1.72, 0.35);
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.45, 0.48, 20), materials.deckDark);
+      const swashplate = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.56, 0.14, 20), materials.pipeIndustrial);
+      swashplate.position.y = -0.14;
+      mainRotor.add(hub, swashplate);
+
+      const bladeMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.32, metalness: 0.45 });
+      const tipMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+      for (let i = 0; i < 4; i++) {
+        const arm = new THREE.Group();
+        arm.rotation.y = (i * Math.PI) / 2;
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(6.1, 0.06, 0.42), bladeMat);
+        blade.position.x = 3.2;
+        const rootCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.65, 12), materials.pipeIndustrial);
+        rootCuff.rotation.z = Math.PI / 2;
+        rootCuff.position.x = 0.55;
+        const tip = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.07, 0.44), tipMat);
+        tip.position.x = 6.25;
+        arm.add(blade, rootCuff, tip);
+        mainRotor.add(arm);
+      }
+      heli.add(mainRotor);
+
+      // Tail Rotor
+      const tailRotor = new THREE.Group();
+      tailRotor.position.set(0.34, 1.55, -8.6);
+      const tb1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.35, 0.22), bladeMat);
+      const tb2 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 2.35), bladeMat);
+      tailRotor.add(tb1, tb2);
+      heli.add(tailRotor);
+
+      // Red anti-collision strobe beacon on vertical stabilizer
+      const strobeLight = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), materials.beaconRed);
+      strobeLight.position.set(0, 2.45, -8.9);
+      heli.add(strobeLight);
+      state.helicopter.strobeLight = strobeLight;
+
+      heli.add(body, cabinRoof, nose, cockpitGlass, stripe, tailBoom, hStab, tailFin);
+      heli.position.copy(CONFIG.heliSpawnPos);
+      heli.visible = false;
+      scene.add(heli);
+
+      state.helicopter.group = heli;
+      state.helicopter.mainRotor = mainRotor;
+      state.helicopter.tailRotor = tailRotor;
+    }
+    buildHelicopter();
+
+    function triggerHelicopterFlight() {
+      if (state.helicopter.state !== 'IDLE_SHORE') {
+        showAlert('🚁 Crew Transfer Helicopter is already on active flight mission!', 'amber');
+        return;
+      }
+      state.helicopter.state = 'INBOUND';
+      state.helicopter.progress = 0;
+      state.helicopter.rotorRpm = 1.0;
+      state.helicopter.startPos.copy(CONFIG.heliSpawnPos);
+      state.helicopter.targetPos.copy(CONFIG.helipadWorldPos).add(new THREE.Vector3(0, 16, 0));
+      state.helicopter.group.position.copy(CONFIG.heliSpawnPos);
+      state.helicopter.group.rotation.set(0, 0, 0);
+      state.helicopter.group.visible = true;
+      showAlert('🚁 Crew Transfer Helicopter departing shore terminal for LQ Helipad.', 'amber');
+      addLog('[HELI] Inbound flight from shore terminal to LQ Helipad.');
+    }
+
+    // 8B. Detailed Offshore Supply Vessel (OSV) with Bulbous Bow, Bridge Wings, Drill Pipes & ISO Containers
+    function buildSupplyVessel() {
+      const osv = new THREE.Group();
+
+      // Hull (Dark navy/blue with red antifouling waterline)
+      const hullLower = new THREE.Mesh(
+        new THREE.BoxGeometry(7.4, 2.4, 25),
+        new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.5 })
+      );
+      hullLower.position.y = 0.2;
+
+      const hullUpper = new THREE.Mesh(
+        new THREE.BoxGeometry(7.6, 2.5, 26),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.42, metalness: 0.35 })
+      );
+      hullUpper.position.y = 2.45;
+
+      // White Hull Rub-Rail Stripe
+      const hullStripe = new THREE.Mesh(new THREE.BoxGeometry(7.72, 0.32, 26.1), materials.moduleWhite);
+      hullStripe.position.y = 3.1;
+
+      // Forward Bow & Submerged Bulbous Bow (higher subdivision)
+      const bow = new THREE.Mesh(
+        new THREE.ConeGeometry(5.3, 7.8, 16),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.42 })
+      );
+      bow.rotation.x = Math.PI / 2;
+      bow.rotation.y = Math.PI / 4;
+      bow.scale.set(1.02, 1.0, 0.68);
+      bow.position.set(0, 1.45, 16.4);
+
+      const bulbousBow = new THREE.Mesh(
+        new THREE.SphereGeometry(1.45, 24, 18),
+        new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.45 })
+      );
+      bulbousBow.scale.set(0.85, 0.85, 2.2);
+      bulbousBow.position.set(0, -0.35, 17.8);
+
+      // Forward Bridge Superstructure with Bridge Wings & Radar Mast
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(6.8, 5.6, 6.4), materials.moduleWhite);
+      bridge.position.set(0, 6.2, 8.5);
+      bridge.castShadow = true;
+
+      const wheelhouse = new THREE.Mesh(new THREE.BoxGeometry(8.6, 2.0, 4.2), materials.moduleWhite);
+      wheelhouse.position.set(0, 9.6, 9.1);
+
+      const bridgeGlass = new THREE.Mesh(
+        new THREE.BoxGeometry(8.75, 0.92, 4.35),
+        new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.45 })
+      );
+      bridgeGlass.position.set(0, 9.8, 9.1);
+
+      // Port (Red) & Starboard (Green) Bridge Wing Navigation Lights
+      const portLight = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 8), materials.beaconRed);
+      portLight.position.set(-4.35, 10.3, 9.1);
+      const stbdLight = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 8), materials.beaconGreen);
+      stbdLight.position.set(4.35, 10.3, 9.1);
+      osv.add(portLight, stbdLight);
+
+      // Radar Mast on Wheelhouse Roof
+      const osvMast = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.35, 4.2, 8), materials.moduleWhite);
+      osvMast.position.set(0, 12.5, 9.0);
+      const radarBar = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.22, 0.32), materials.moduleWhite);
+      radarBar.position.set(0, 13.8, 9.0);
+      osv.add(osvMast, radarBar);
+
+      // Twin Exhaust Funnels
+      [-2.1, 2.1].forEach((x) => {
+        const funnel = new THREE.Mesh(new THREE.BoxGeometry(0.95, 3.8, 1.45), materials.safetyOrange);
+        funnel.position.set(x, 8.9, 4.8);
+        osv.add(funnel);
+      });
+
+      // Aft Cargo Deck with Cargo Bulwark Rails, Stacked ISO Containers & Tubular Drill Pipes
+      const cargoDeck = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.4, 16.2), materials.deckSteel);
+      cargoDeck.position.set(0, 3.7, -3.8);
+
+      const bulwarkL = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1.3, 16.2), materials.safetyOrange);
+      bulwarkL.position.set(-3.45, 4.35, -3.8);
+      const bulwarkR = bulwarkL.clone();
+      bulwarkR.position.x = 3.45;
+      osv.add(bulwarkL, bulwarkR);
+
+      const containerColors = [0x0284c7, 0xf97316, 0x16a34a, 0xeab308, 0x6366f1];
+      for (let i = 0; i < 5; i++) {
+        const isTop = i === 4;
+        const cont = new THREE.Mesh(
+          new THREE.BoxGeometry(2.45, 2.15, 4.6),
+          new THREE.MeshStandardMaterial({ color: containerColors[i], roughness: 0.48 })
+        );
+        const cx = isTop ? -1.55 : i % 2 === 0 ? -1.55 : 1.55;
+        const cy = isTop ? 7.05 : 4.9;
+        const cz = isTop ? -1.2 : -1.2 - Math.floor(i / 2) * 5.2;
+        cont.position.set(cx, cy, cz);
+        cont.castShadow = true;
+        osv.add(cont);
+      }
+
+      // Bundled Tubular Drill Pipes on Aft Starboard Deck
+      for (let p = 0; p < 4; p++) {
+        const pipeBundle = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 8.5, 10), materials.pipeIndustrial);
+        pipeBundle.rotation.x = Math.PI / 2;
+        pipeBundle.position.set(1.25 + (p % 2) * 0.55, 4.15 + Math.floor(p / 2) * 0.48, -7.2);
+        osv.add(pipeBundle);
+      }
+
+      // Foam wake plane behind stern
+      const wake = new THREE.Mesh(
+        new THREE.PlaneGeometry(6.8, 24),
+        new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.42, side: THREE.DoubleSide })
+      );
+      wake.rotation.x = -Math.PI / 2;
+      wake.position.set(0, 0.15, -24.5);
+      osv.add(wake);
+
+      osv.add(hullLower, hullUpper, hullStripe, bow, bulbousBow, bridge, wheelhouse, bridgeGlass, cargoDeck);
+      osv.position.copy(CONFIG.osvSpawnPos);
+      scene.add(osv);
+
+      state.vessel.group = osv;
+      state.vessel.wake = wake;
+    }
+    buildSupplyVessel();
+
+    function triggerSupplyVessel() {
+      if (state.vessel.state !== 'IDLE_SHORE') {
+        showAlert('🚢 Supply Vessel MV North Star is already servicing the field!', 'sky');
+        return;
+      }
+      state.vessel.state = 'INBOUND';
+      state.vessel.progress = 0;
+      state.vessel.group.visible = true;
+      showAlert('🚢 Offshore Supply Vessel inbound with equipment & waste skips.', 'sky');
+      addLog('[OSV] MV North Star inbound from shore supply base.');
+    }
+
+    // =========================================================================
+    // 9. SUBSEA MARINE ECOSYSTEM (FISH, TURTLES, WHALE SHARK & RARE WHALE)
+    // =========================================================================
+    // Procedural marine skin, scale, scute, spot, and baleen pleat textures + bump maps
+    function createMarineSkinTexture(baseHex, accentHex, patternType = 'scales') {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+
+      // Counter-shaded vertical gradient (deep dorsal top to pale counter-shaded belly)
+      const grad = ctx.createLinearGradient(0, 0, 0, 512);
+      grad.addColorStop(0.0, baseHex);
+      grad.addColorStop(0.58, baseHex);
+      grad.addColorStop(0.76, accentHex);
+      grad.addColorStop(1.0, '#f8fafc');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 512, 512);
+
+      if (patternType === 'scales') {
+        // Overlapping fish scales + shimmering lateral line
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.24)';
+        ctx.lineWidth = 2;
+        for (let y = 0; y <= 512; y += 22) {
+          for (let x = 0; x <= 512; x += 28) {
+            const offsetX = ((y / 22) % 2) * 14;
+            ctx.beginPath();
+            ctx.arc(x + offsetX, y, 13, 0.12 * Math.PI, 0.88 * Math.PI);
+            ctx.stroke();
+          }
+        }
+        ctx.strokeStyle = 'rgba(224, 242, 254, 0.45)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, 256);
+        for (let x = 0; x <= 512; x += 32) {
+          ctx.lineTo(x, 256 + Math.sin(x * 0.03) * 8);
+        }
+        ctx.stroke();
+      } else if (patternType === 'turtle') {
+        // Detailed polygonal scutes & growth rings on turtle carapace
+        ctx.strokeStyle = 'rgba(20, 28, 12, 0.65)';
+        ctx.lineWidth = 5;
+        for (let y = 36; y < 480; y += 76) {
+          for (let x = 36; x < 480; x += 84) {
+            const ox = ((y / 76) % 2) * 42;
+            const cx = x + ox;
+            const cy = y;
+            ctx.beginPath();
+            ctx.moveTo(cx - 24, cy - 28);
+            ctx.lineTo(cx + 24, cy - 28);
+            ctx.lineTo(cx + 36, cy);
+            ctx.lineTo(cx + 24, cy + 28);
+            ctx.lineTo(cx - 24, cy + 28);
+            ctx.lineTo(cx - 36, cy);
+            ctx.closePath();
+            ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(132, 204, 22, 0.25)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(cx - 14, cy - 14, 28, 28);
+            ctx.strokeStyle = 'rgba(20, 28, 12, 0.65)';
+            ctx.lineWidth = 5;
+          }
+        }
+      } else if (patternType === 'baleen') {
+        // Deep rorqual ventral throat grooves (pleats) & subtle ocean mottling
+        for (let x = 64; x < 448; x += 18) {
+          ctx.strokeStyle = 'rgba(15, 23, 42, 0.35)';
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.moveTo(x, 290);
+          ctx.quadraticCurveTo(x + (256 - x) * 0.05, 400, x + (256 - x) * 0.1, 512);
+          ctx.stroke();
+
+          ctx.strokeStyle = 'rgba(226, 232, 240, 0.45)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x + 5, 290);
+          ctx.quadraticCurveTo(x + 5 + (256 - x) * 0.05, 400, x + 5 + (256 - x) * 0.1, 512);
+          ctx.stroke();
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    // 9A. Underwater Rising Gas/Aeration Bubbles
+    function buildSubseaBubbles() {
+      const count = 420;
+      const geo = new THREE.BufferGeometry();
+      const positions = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 280;
+        positions[i * 3 + 1] = CONFIG.seabedDepth + Math.random() * 37;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 280;
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const mat = new THREE.PointsMaterial({
+        color: 0xbae6fd,
+        size: 0.55,
+        transparent: true,
+        opacity: 0.65
+      });
+      const points = new THREE.Points(geo, mat);
+      scene.add(points);
+      state.bubbles = points;
+    }
+    buildSubseaBubbles();
+
+    // 9B. High-Poly Reef & Pelagic Fish Schools (Sculpted Fusiform Bodies, Eyes, Gill Covers, Pectoral & Tail Fins)
+    function buildFishSchools() {
+      const palettes = [
+        { body: '#0284c7', belly: '#bae6fd' },
+        { body: '#eab308', belly: '#fef9c3' },
+        { body: '#e11d48', belly: '#ffe4e6' },
+        { body: '#059669', belly: '#d1fae5' }
+      ];
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.1, metalness: 0.85 });
+      const pupilGlintMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+      for (let s = 0; s < 5; s++) {
+        const schoolGroup = new THREE.Group();
+        const centerAngle = (s / 5) * Math.PI * 2;
+        const radius = 28 + s * 18;
+        const depth = -10 - (s % 3) * 7;
+        const pal = palettes[s % palettes.length];
+        const fishSkinTex = createMarineSkinTexture(pal.body, pal.belly, 'scales');
+
+        const fishMat = new THREE.MeshStandardMaterial({
+          map: fishSkinTex,
+          bumpMap: fishSkinTex,
+          bumpScale: 0.08,
+          roughness: 0.24,
+          metalness: 0.35,
+          side: THREE.DoubleSide
+        });
+
+        for (let f = 0; f < 22; f++) {
+          const fish = new THREE.Group();
+
+          // High-polygon streamlined body + sculpted tail peduncle
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.34, 28, 22), fishMat);
+          body.scale.set(0.66, 0.98, 2.35);
+
+          const peduncleMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.24, 0.55, 18), fishMat);
+          peduncleMesh.rotation.x = Math.PI / 2;
+          peduncleMesh.scale.set(0.75, 1.15, 1);
+          peduncleMesh.position.set(0, 0, -0.62);
+
+          // Dorsal fin, anal fin & paired pectoral fins
+          const dorsal = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.68, 12), fishMat);
+          dorsal.position.set(0, 0.38, -0.05);
+          dorsal.rotation.x = -0.42;
+          dorsal.scale.set(0.32, 1.0, 1.35);
+
+          const analFin = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.42, 10), fishMat);
+          analFin.position.set(0, -0.32, -0.25);
+          analFin.rotation.x = Math.PI + 0.35;
+          analFin.scale.set(0.3, 1.0, 1.1);
+
+          const pecL = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.54, 12), fishMat);
+          pecL.position.set(-0.26, -0.08, 0.14);
+          pecL.rotation.z = 1.15;
+          pecL.rotation.y = 0.25;
+          const pecR = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.54, 12), fishMat);
+          pecR.position.set(0.26, -0.08, 0.14);
+          pecR.rotation.z = -1.15;
+          pecR.rotation.y = -0.25;
+
+          // Articulated caudal tail fin that sways naturally
+          const tailGroup = new THREE.Group();
+          tailGroup.position.set(0, 0, -0.86);
+          const tailFin = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.72, 14), fishMat);
+          tailFin.rotation.x = -Math.PI / 2;
+          tailFin.scale.set(0.2, 1.0, 1.25);
+          tailFin.position.z = -0.28;
+          tailGroup.add(tailFin);
+
+          // Eyes with specular catchlight
+          const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.072, 14, 14), eyeMat);
+          eyeL.position.set(-0.19, 0.09, 0.46);
+          const glintL = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 8), pupilGlintMat);
+          glintL.position.set(-0.24, 0.12, 0.5);
+
+          const eyeR = eyeL.clone();
+          eyeR.position.x = 0.19;
+          const glintR = glintL.clone();
+          glintR.position.x = 0.24;
+
+          fish.add(body, peduncleMesh, dorsal, analFin, pecL, pecR, tailGroup, eyeL, glintL, eyeR, glintR);
+          fish.userData = {
+            tailGroup,
+            pecL,
+            pecR,
+            phase: Math.random() * Math.PI * 2
+          };
+
+          fish.position.set(
+            (Math.random() - 0.5) * 14,
+            (Math.random() - 0.5) * 5,
+            (Math.random() - 0.5) * 14
+          );
+          schoolGroup.add(fish);
+        }
+
+        schoolGroup.userData = {
+          angle: centerAngle,
+          radius,
+          depth,
+          speed: 0.12 + Math.random() * 0.08
+        };
+        scene.add(schoolGroup);
+        state.fishSchools.push(schoolGroup);
+      }
+    }
+    buildFishSchools();
+
+    // 9C. High-Poly Sea Turtles (Domed Scute Carapace, Plastron, Sculpted Head, Beak, Eyes & Flippers)
+    function buildSeaTurtles() {
+      const shellTex = createMarineSkinTexture('#3f6212', '#a3e635', 'turtle');
+      const shellMat = new THREE.MeshStandardMaterial({
+        map: shellTex,
+        bumpMap: shellTex,
+        bumpScale: 0.14,
+        roughness: 0.38,
+        metalness: 0.18
+      });
+      const skinTex = createMarineSkinTexture('#65a30d', '#bef264', 'scales');
+      const skinMat = new THREE.MeshStandardMaterial({
+        map: skinTex,
+        bumpMap: skinTex,
+        bumpScale: 0.06,
+        roughness: 0.42
+      });
+      const bellyMat = new THREE.MeshStandardMaterial({ color: 0xecfccb, roughness: 0.62 });
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.1 });
+
+      for (let t = 0; t < 3; t++) {
+        const turtle = new THREE.Group();
+        const shell = new THREE.Mesh(new THREE.SphereGeometry(1.18, 36, 28), shellMat);
+        shell.scale.set(0.92, 0.45, 1.25);
+
+        const plastron = new THREE.Mesh(new THREE.SphereGeometry(1.04, 28, 20), bellyMat);
+        plastron.scale.set(0.88, 0.22, 1.15);
+        plastron.position.y = -0.22;
+
+        // Neck + head + hooked beak
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.32, 0.55, 18), skinMat);
+        neck.rotation.x = Math.PI / 2 - 0.12;
+        neck.position.set(0, -0.06, 1.25);
+
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 24, 20), skinMat);
+        head.scale.set(0.92, 0.84, 1.32);
+        head.position.set(0, -0.03, 1.56);
+
+        const beak = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.36, 14), skinMat);
+        beak.rotation.x = Math.PI / 2 + 0.15;
+        beak.position.set(0, -0.08, 1.98);
+
+        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.072, 12, 12), eyeMat);
+        eyeL.position.set(-0.28, 0.06, 1.66);
+        const eyeR = eyeL.clone();
+        eyeR.position.x = 0.28;
+
+        // Swept fore-flippers & hind flippers
+        const flipperL = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.11, 0.58), skinMat);
+        flipperL.position.set(-1.24, -0.05, 0.45);
+        flipperL.rotation.y = 0.25;
+        const flipperR = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.11, 0.58), skinMat);
+        flipperR.position.set(1.24, -0.05, 0.45);
+        flipperR.rotation.y = -0.25;
+
+        const hindL = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.09, 0.46), skinMat);
+        hindL.position.set(-0.58, -0.1, -1.32);
+        const hindR = hindL.clone();
+        hindR.position.x = 0.58;
+
+        turtle.add(shell, plastron, neck, head, beak, eyeL, eyeR, flipperL, flipperR, hindL, hindR);
+        turtle.userData = {
+          angle: t * 2.1,
+          radius: 36 + t * 22,
+          depth: -14 - t * 5,
+          flipperL,
+          flipperR
+        };
+        scene.add(turtle);
+        state.turtles.push(turtle);
+      }
+    }
+    buildSeaTurtles();
+
+    // 9D. High-Poly Rare Whale Shark (Detailed Spot/Stripe Texture, Ridges, Gill Slits, Eyes, Fin Tips & Tail)
+    function createWhaleSharkTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, 1024);
+      bgGrad.addColorStop(0.0, '#162232');
+      bgGrad.addColorStop(0.64, '#28384d');
+      bgGrad.addColorStop(0.78, '#94a3b8');
+      bgGrad.addColorStop(1.0, '#f1f5f9');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      // Subtle vertical pale bars & checkerboard spots
+      ctx.strokeStyle = 'rgba(226, 232, 240, 0.16)';
+      ctx.lineWidth = 8;
+      for (let x = 40; x < 1024; x += 96) {
+        ctx.beginPath();
+        ctx.moveTo(x, 40);
+        ctx.lineTo(x, 660);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = 'rgba(248, 250, 252, 0.84)';
+      for (let y = 42; y < 670; y += 54) {
+        for (let x = 36; x < 1000; x += 62) {
+          const ox = ((y / 54) % 2) * 31;
+          const r = 6.2 + (y / 670) * 3.5;
+          ctx.beginPath();
+          ctx.arc(x + ox + Math.sin(y * 0.04) * 8, y + Math.cos(x * 0.03) * 6, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function buildWhaleShark() {
+      const ws = new THREE.Group();
+      const wsSkin = createWhaleSharkTexture();
+      const wsMat = new THREE.MeshStandardMaterial({
+        map: wsSkin,
+        bumpMap: wsSkin,
+        bumpScale: 0.12,
+        roughness: 0.36,
+        metalness: 0.15
+      });
+      const bellyMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.5 });
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.1 });
+
+      const torso = new THREE.Mesh(new THREE.CylinderGeometry(1.28, 2.32, 11.8, 48, 24), wsMat);
+      torso.rotation.x = Math.PI / 2;
+      torso.scale.set(1.2, 0.88, 1);
+
+      // Longitudinal dermal ridges along torso
+      for (let r = -1; r <= 1; r++) {
+        const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 10.2), wsMat);
+        ridge.position.set(r * 1.45, 0.95, 0.2);
+        ws.add(ridge);
+      }
+
+      // Broad flat whale shark head, mouth & eyes
+      const head = new THREE.Mesh(new THREE.BoxGeometry(3.82, 1.42, 4.25), wsMat);
+      head.position.set(0, -0.1, 6.45);
+
+      const mouth = new THREE.Mesh(new THREE.BoxGeometry(3.25, 0.24, 0.9), bellyMat);
+      mouth.position.set(0, -0.64, 8.22);
+
+      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), eyeMat);
+      eyeL.position.set(-1.94, 0.12, 7.4);
+      const eyeR = eyeL.clone();
+      eyeR.position.x = 1.94;
+
+      // 5 vertical gill slits on each side
+      for (let g = 0; g < 5; g++) {
+        const gillGeo = new THREE.BoxGeometry(0.1, 0.92, 0.14);
+        const gillL = new THREE.Mesh(gillGeo, eyeMat);
+        gillL.position.set(-1.98, -0.05, 4.4 - g * 0.44);
+        const gillR = gillL.clone();
+        gillR.position.x = 1.98;
+        ws.add(gillL, gillR);
+      }
+
+      const belly = new THREE.Mesh(new THREE.BoxGeometry(2.95, 0.58, 10.6), bellyMat);
+      belly.position.set(0, -1.14, 1.2);
+
+      // Primary dorsal fin, second smaller dorsal fin, pelvic fins & sweeping pectoral fins
+      const dorsal = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2.85, 14), wsMat);
+      dorsal.position.set(0, 2.22, -0.5);
+      dorsal.rotation.x = -0.35;
+      dorsal.scale.set(0.45, 1.0, 1.25);
+
+      const dorsal2 = new THREE.Mesh(new THREE.ConeGeometry(0.58, 1.28, 12), wsMat);
+      dorsal2.position.set(0, 1.4, -4.6);
+      dorsal2.rotation.x = -0.35;
+      dorsal2.scale.set(0.45, 1.0, 1.2);
+
+      const pecL = new THREE.Mesh(new THREE.BoxGeometry(5.1, 0.26, 1.85), wsMat);
+      pecL.position.set(-3.55, -0.52, 2.2);
+      pecL.rotation.y = 0.35;
+      pecL.rotation.z = -0.14;
+      const pecR = pecL.clone();
+      pecR.position.x = 3.55;
+      pecR.rotation.y = -0.35;
+      pecR.rotation.z = 0.14;
+
+      // Articulated tail assembly with upper & lower caudal lobes
+      const tailGroup = new THREE.Group();
+      tailGroup.position.set(0, 0, -5.8);
+      const peduncle = new THREE.Mesh(new THREE.CylinderGeometry(0.54, 1.28, 4.7, 32), wsMat);
+      peduncle.rotation.x = Math.PI / 2;
+      peduncle.position.z = -2.25;
+
+      const upperLobe = new THREE.Mesh(new THREE.BoxGeometry(0.26, 4.1, 1.65), wsMat);
+      upperLobe.position.set(0, 1.72, -4.6);
+      upperLobe.rotation.x = -0.52;
+
+      const lowerLobe = new THREE.Mesh(new THREE.BoxGeometry(0.26, 2.25, 1.3), wsMat);
+      lowerLobe.position.set(0, -1.02, -4.4);
+      lowerLobe.rotation.x = 0.45;
+
+      tailGroup.add(peduncle, upperLobe, lowerLobe);
+
+      ws.add(torso, head, mouth, eyeL, eyeR, belly, dorsal, dorsal2, pecL, pecR, tailGroup);
+      ws.userData.tailGroup = tailGroup;
+      ws.visible = false;
+      scene.add(ws);
+      state.whaleShark.group = ws;
+    }
+    buildWhaleShark();
+
+    function spawnWhaleShark() {
+      if (state.whaleShark.active) return;
+      const ws = state.whaleShark;
+      ws.active = true;
+      ws.progress = 0;
+
+      const side = Math.random() > 0.5 ? 1 : -1;
+      ws.path = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-190 * side, -16, -120),
+        new THREE.Vector3(-45 * side, -14, -22),
+        new THREE.Vector3(35 * side, -17, 26),
+        new THREE.Vector3(195 * side, -15, 110)
+      ]);
+      ws.group.visible = true;
+      showAlert('🦈 RARE SIGHTING: Whale Shark gliding past the subsea jackets!', 'cyan');
+      addLog('[MARINE] Rare Whale Shark spotted cruising at -15m depth.');
+    }
+
+    // 9E. High-Poly Very Rare Baleen / Blue Whale (Pleated Throat, Splashguard, Dorsal Fin, Pectorals & Flukes)
+    function buildRareWhale() {
+      const whale = new THREE.Group();
+      const whaleTex = createMarineSkinTexture('#173152', '#94a3b8', 'baleen');
+      const whaleMat = new THREE.MeshStandardMaterial({
+        map: whaleTex,
+        bumpMap: whaleTex,
+        bumpScale: 0.16,
+        roughness: 0.32,
+        metalness: 0.22
+      });
+      const grooveMat = new THREE.MeshStandardMaterial({
+        map: whaleTex,
+        bumpMap: whaleTex,
+        bumpScale: 0.2,
+        color: 0xe2e8f0,
+        roughness: 0.52
+      });
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.1 });
+
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(1.88, 3.72, 21.0, 56, 28), whaleMat);
+      body.rotation.x = Math.PI / 2;
+      body.scale.set(1.14, 0.98, 1);
+
+      const head = new THREE.Mesh(new THREE.SphereGeometry(3.68, 48, 36), whaleMat);
+      head.scale.set(1.1, 0.9, 2.3);
+      head.position.set(0, -0.1, 10.8);
+
+      // Rostrum ridge, blowhole twin vents & ventral throat pleats
+      const rostrum = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.62, 7.8), whaleMat);
+      rostrum.position.set(0, 1.38, 13.4);
+
+      const blowholeL = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.12, 12), eyeMat);
+      blowholeL.position.set(-0.24, 2.85, 8.2);
+      const blowholeR = blowholeL.clone();
+      blowholeR.position.x = 0.24;
+
+      const throat = new THREE.Mesh(new THREE.SphereGeometry(3.32, 44, 32), grooveMat);
+      throat.scale.set(1.05, 0.76, 2.5);
+      throat.position.set(0, -1.14, 8.8);
+
+      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), eyeMat);
+      eyeL.position.set(-3.52, 0.05, 9.5);
+      const eyeR = eyeL.clone();
+      eyeR.position.x = 3.52;
+
+      // Small falcate dorsal fin further back along the spine
+      const dorsal = new THREE.Mesh(new THREE.ConeGeometry(1.02, 2.25, 14), whaleMat);
+      dorsal.position.set(0, 3.22, -6.0);
+      dorsal.rotation.x = -0.55;
+      dorsal.scale.set(0.45, 1.0, 1.35);
+
+      const pecL = new THREE.Mesh(new THREE.BoxGeometry(8.0, 0.36, 2.38), whaleMat);
+      pecL.position.set(-5.65, -1.28, 4.7);
+      pecL.rotation.y = 0.42;
+      pecL.rotation.z = -0.12;
+      const pecR = pecL.clone();
+      pecR.position.x = 5.65;
+      pecR.rotation.y = -0.42;
+      pecR.rotation.z = 0.12;
+
+      const tailGroup = new THREE.Group();
+      tailGroup.position.set(0, 0, -10.5);
+      const tailStock = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.88, 8.0, 36), whaleMat);
+      tailStock.rotation.x = Math.PI / 2;
+      tailStock.position.z = -3.8;
+
+      // Swept horizontal whale tail flukes with central notch
+      const flukeL = new THREE.Mesh(new THREE.BoxGeometry(4.85, 0.3, 2.65), whaleMat);
+      flukeL.position.set(-2.4, 0, -7.7);
+      flukeL.rotation.y = 0.2;
+
+      const flukeR = new THREE.Mesh(new THREE.BoxGeometry(4.85, 0.3, 2.65), whaleMat);
+      flukeR.position.set(2.4, 0, -7.7);
+      flukeR.rotation.y = -0.2;
+
+      tailGroup.add(tailStock, flukeL, flukeR);
+
+      whale.add(body, head, rostrum, blowholeL, blowholeR, throat, eyeL, eyeR, dorsal, pecL, pecR, tailGroup);
+      whale.userData.tailGroup = tailGroup;
+      whale.visible = false;
+      scene.add(whale);
+      state.rareWhale.group = whale;
+    }
+    buildRareWhale();
+
+    function spawnRareWhale() {
+      if (state.rareWhale.active) return;
+      const rw = state.rareWhale;
+      rw.active = true;
+      rw.progress = 0;
+
+      rw.path = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-230, -21, 95),
+        new THREE.Vector3(-60, -19, 34),
+        new THREE.Vector3(45, -22, -18),
+        new THREE.Vector3(240, -20, -90)
+      ]);
+      rw.group.visible = true;
+      showAlert('🐋 VERY RARE SIGHTING: Giant Baleen Whale traversing the deep field!', 'indigo');
+      addLog('[MARINE] VERY RARE: Giant Baleen Whale observed near subsea trunkline.');
+    }
+
+    // =========================================================================
+    // 10. INTERACTIVE RAYCASTING (MOVE & ADD WELLHEAD PLATFORMS)
+    // =========================================================================
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const seaDragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const dragOffset = new THREE.Vector3();
+    const intersectPt = new THREE.Vector3();
+
+    function getPointerNDC(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+      const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    }
+
+    function onPointerDown(event) {
+      if (event.button !== undefined && event.button !== 0) return;
+      getPointerNDC(event);
+      raycaster.setFromCamera(pointer, camera);
+
+      // Mode 1: Placing a brand-new wellhead platform on the sea
+      if (state.placingNewWhp) {
+        if (raycaster.ray.intersectPlane(seaDragPlane, intersectPt)) {
+          const newWhp = addWellheadPlatform(intersectPt.x, intersectPt.z, false);
+          selectWellhead(newWhp);
+          setPlacementMode(false);
+        }
+        return;
+      }
+
+      // Mode 2: Selecting or dragging an existing wellhead platform
+      const hitTargets = state.wellheads.map((w) => w.hitBox);
+      const hits = raycaster.intersectObjects(hitTargets, false);
+
+      if (hits.length > 0) {
+        const whpObj = hits[0].object.userData.whp;
+        selectWellhead(whpObj);
+
+        if (state.dragMode) {
+          state.draggingWhp = whpObj;
+          controls.enabled = false;
+          if (raycaster.ray.intersectPlane(seaDragPlane, intersectPt)) {
+            dragOffset.copy(whpObj.group.position).sub(intersectPt);
+          }
+          renderer.domElement.style.cursor = 'grabbing';
+        }
+      }
+    }
+
+    function onPointerMove(event) {
+      getPointerNDC(event);
+      raycaster.setFromCamera(pointer, camera);
+
+      if (state.draggingWhp) {
+        if (raycaster.ray.intersectPlane(seaDragPlane, intersectPt)) {
+          updateWellheadPosition(
+            state.draggingWhp,
+            intersectPt.x + dragOffset.x,
+            intersectPt.z + dragOffset.z
+          );
+        }
+        return;
+      }
+
+      if (state.placingNewWhp) {
+        renderer.domElement.style.cursor = 'crosshair';
+        return;
+      }
+
+      const hitTargets = state.wellheads.map((w) => w.hitBox);
+      const hits = raycaster.intersectObjects(hitTargets, false);
+      renderer.domElement.style.cursor = hits.length > 0 ? (state.dragMode ? 'grab' : 'pointer') : 'default';
+    }
+
+    function onPointerUp() {
+      if (state.draggingWhp) {
+        addLog(`[FIELD] Relocated ${state.draggingWhp.code} & updated subsea flowline.`);
+        state.draggingWhp = null;
+        controls.enabled = true;
+        renderer.domElement.style.cursor = 'default';
+      }
+    }
+
+    renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+
+    // =========================================================================
+    // 11. UI CONTROLS, TELEMETRY & CAMERA PRESETS
+    // =========================================================================
+    function addLog(msg) {
+      const logBox = document.getElementById('event-log');
+      const entry = document.createElement('div');
+      const now = new Date();
+      const ts = now.toTimeString().slice(0, 5);
+      entry.textContent = `[${ts}] ${msg}`;
+      logBox.prepend(entry);
+      while (logBox.children.length > 18) {
+        logBox.removeChild(logBox.lastChild);
+      }
+    }
+
+    function showAlert(text, tone = 'sky') {
+      const container = document.getElementById('alert-container');
+      const badge = document.createElement('div');
+      const colors = {
+        sky: 'border-sky-400/50 text-sky-100 bg-slate-900/90',
+        emerald: 'border-emerald-400/50 text-emerald-100 bg-slate-900/90',
+        amber: 'border-amber-400/50 text-amber-100 bg-slate-900/90',
+        cyan: 'border-cyan-400/60 text-cyan-100 bg-cyan-950/90',
+        indigo: 'border-indigo-400/60 text-indigo-100 bg-indigo-950/90'
+      };
+      badge.className = `glass-panel border ${colors[tone] || colors.sky} px-4 py-2 rounded-full text-xs font-medium shadow-xl transition-all duration-300`;
+      badge.textContent = text;
+      container.appendChild(badge);
+      setTimeout(() => {
+        badge.style.opacity = '0';
+        badge.style.transform = 'translateY(-8px)';
+        setTimeout(() => badge.remove(), 300);
+      }, 4200);
+    }
+
+    function updateTelemetryUI() {
+      const count = state.wellheads.length;
+      const totalGas = state.wellheads.reduce((acc, w) => acc + w.flowRate, 0);
+      document.getElementById('metric-whp-count').textContent = count;
+      document.getElementById('metric-gas').textContent = totalGas.toLocaleString();
+      document.getElementById('metric-pressure').textContent = (112 + count * 1.3).toFixed(1);
+    }
+
+    function selectWellhead(whpObj) {
+      state.selectedWhp = whpObj;
+      document.getElementById('whp-inspector').classList.remove('hidden');
+      updateInspectorUI(whpObj);
+    }
+
+    function updateInspectorUI(whpObj) {
+      document.getElementById('insp-name').textContent = whpObj.code;
+      document.getElementById('insp-flow').textContent = `${whpObj.flowRate} MMSCFD`;
+      document.getElementById('insp-press').textContent = `${whpObj.pressure} BAR`;
+      const distKm = (whpObj.group.position.distanceTo(CONFIG.centralPos) * 0.018).toFixed(2);
+      document.getElementById('insp-dist').textContent = `${distKm} km`;
+      document.getElementById('insp-depth').textContent = `${Math.abs(CONFIG.seabedDepth).toFixed(1)} m`;
+    }
+
+    function setPlacementMode(active) {
+      state.placingNewWhp = active;
+      const btnAdd = document.getElementById('btn-add-whp');
+      const hint = document.getElementById('placement-hint');
+      if (active) {
+        btnAdd.classList.add('active');
+        hint.innerHTML = '<span class="text-emerald-300 font-semibold">Click anywhere on the ocean surface</span> to deploy a new satellite wellhead platform.';
+      } else {
+        btnAdd.classList.remove('active');
+        hint.textContent = 'Click & drag any yellow wellhead platform on the sea to reposition it and reroute its subsea flowline.';
+      }
+    }
+
+    document.getElementById('btn-add-whp').addEventListener('click', () => {
+      setPlacementMode(!state.placingNewWhp);
+    });
+
+    document.getElementById('btn-drag-mode').addEventListener('click', (e) => {
+      state.dragMode = !state.dragMode;
+      const btn = e.currentTarget;
+      btn.classList.toggle('active', state.dragMode);
+      btn.querySelector('span').textContent = `Drag Mode: ${state.dragMode ? 'ON' : 'OFF'}`;
+    });
+
+    document.getElementById('btn-delete-whp').addEventListener('click', () => {
+      if (state.selectedWhp) {
+        removeWellheadPlatform(state.selectedWhp);
+      }
+    });
+
+    document.getElementById('btn-trigger-heli').addEventListener('click', triggerHelicopterFlight);
+    document.getElementById('btn-trigger-vessel').addEventListener('click', triggerSupplyVessel);
+    document.getElementById('btn-trigger-whaleshark').addEventListener('click', spawnWhaleShark);
+    document.getElementById('btn-trigger-whale').addEventListener('click', spawnRareWhale);
+
+    function setHudVisibility(visible) {
+      state.hudVisible = visible;
+      document.getElementById('top-hud').classList.toggle('hidden', !visible);
+      document.getElementById('left-hud').classList.toggle('hidden', !visible);
+      document.getElementById('bottom-hud').classList.toggle('hidden', !visible);
+      const helperHud = document.getElementById('helper-hud');
+      if (visible) {
+        helperHud.classList.add('xl:block');
+      } else {
+        helperHud.classList.remove('xl:block');
+      }
+
+      document.getElementById('floating-eye-open').classList.toggle('hidden', !visible);
+      document.getElementById('floating-eye-closed').classList.toggle('hidden', visible);
+      document.getElementById('floating-hud-label').textContent = visible ? 'Hide Controls' : 'Show Controls';
+    }
+
+    document.getElementById('floating-hud-toggle').addEventListener('click', () => {
+      setHudVisibility(!state.hudVisible);
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.key === 'h' || e.key === 'H') && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+        setHudVisibility(!state.hudVisible);
+      }
+    });
+
+    // Camera Presets
+    const CAMERA_PRESETS = {
+      overview: { pos: new THREE.Vector3(-105, 58, 125), target: new THREE.Vector3(-12, 10, 4) },
+      central: { pos: new THREE.Vector3(38, 36, 52), target: new THREE.Vector3(4, 22, -4) },
+      underwater: { pos: new THREE.Vector3(-46, -16, 48), target: new THREE.Vector3(0, -18, 0) },
+      shoreline: { pos: new THREE.Vector3(240, 48, 130), target: new THREE.Vector3(360, 8, -10) },
+      heli: { pos: new THREE.Vector3(-76, 36, 36), target: new THREE.Vector3(-48, 24, 8) }
+    };
+
+    document.querySelectorAll('.cam-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.cam-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        const key = btn.dataset.cam;
+        const preset = CAMERA_PRESETS[key];
+        if (preset) {
+          state.cameraTransition = {
+            startPos: camera.position.clone(),
+            endPos: preset.pos.clone(),
+            startTarget: controls.target.clone(),
+            endTarget: preset.target.clone(),
+            progress: 0
+          };
+        }
+      });
+    });
+
+    // =========================================================================
+    // 12. ANIMATION LOOP (OCEAN, ABOVE/BELOW WATER ATMOSPHERE, MARINE & LOGISTICS)
+    // =========================================================================
+    const clock = new THREE.Clock();
+    let ambientMarineTimer = 14;
+
+    function updateAtmosphereForCamera() {
+      const camY = camera.position.y;
+      const depthBadge = document.getElementById('depth-badge');
+
+      if (camY < CONFIG.waterLevel) {
+        if (!state.isUnderwater) {
+          state.isUnderwater = true;
+          scene.background.setHex(0x05283d);
+          scene.fog.color.setHex(0x06344f);
+          scene.fog.density = 0.0068;
+          hemiLight.intensity = 0.65;
+          depthBadge.className = 'text-[10px] font-mono-tech uppercase px-2 py-0.5 rounded-full bg-cyan-500/25 text-cyan-200 border border-cyan-400/40';
+        }
+        depthBadge.textContent = `SUBSEA ${camY.toFixed(1)}m`;
+      } else {
+        if (state.isUnderwater) {
+          state.isUnderwater = false;
+          scene.background.setHex(0x0c3454);
+          scene.fog.color.setHex(0x134e75);
+          scene.fog.density = 0.0014;
+          hemiLight.intensity = 0.95;
+          depthBadge.className = 'text-[10px] font-mono-tech uppercase px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30';
+        }
+        depthBadge.textContent = `SURFACE +${camY.toFixed(0)}m`;
+      }
+    }
+
+    function animateOceanAndFlare(elapsed) {
+      // Gentle wave displacement on ocean surface
+      const posAttr = oceanGeo.attributes.position;
+      for (let i = 0; i < posAttr.count; i++) {
+        const ox = oceanBasePos[i * 3];
+        const oz = oceanBasePos[i * 3 + 2];
+        const wave = Math.sin(ox * 0.045 + elapsed * 1.4) * 0.35 + Math.cos(oz * 0.055 + elapsed * 1.1) * 0.3;
+        posAttr.setY(i, wave);
+      }
+      posAttr.needsUpdate = true;
+
+      // Animate Flare Flame Particles
+      state.flameParticles.forEach((p) => {
+        const d = p.userData;
+        d.offset = (d.offset + 0.025 * d.speed) % 1;
+        p.position.set(
+          d.origin.x + d.offset * 3.8 + Math.sin(elapsed * 5 + d.phase) * 0.6,
+          d.origin.y + d.offset * 7.2,
+          d.origin.z - d.offset * 2.2 + Math.cos(elapsed * 4 + d.phase) * 0.6
+        );
+        const s = (1 - d.offset * 0.75) * (1.0 + Math.sin(elapsed * 9 + d.phase) * 0.25);
+        p.scale.setScalar(Math.max(0.1, s));
+        p.material.opacity = (1 - d.offset) * 0.9;
+      });
+      flareLight.intensity = 3.0 + Math.sin(elapsed * 14) * 0.65;
+    }
+
+    function animateMarineLife(dt, elapsed) {
+      // Rising underwater bubbles
+      if (state.bubbles) {
+        const bPos = state.bubbles.geometry.attributes.position;
+        for (let i = 0; i < bPos.count; i++) {
+          let y = bPos.getY(i) + dt * 2.6;
+          if (y > CONFIG.waterLevel - 0.5) {
+            y = CONFIG.seabedDepth + 1.0;
+          }
+          bPos.setY(i, y);
+        }
+        bPos.needsUpdate = true;
+      }
+
+      // Swimming Fish Schools + Individual Tail Undulation
+      state.fishSchools.forEach((school) => {
+        const u = school.userData;
+        u.angle += dt * u.speed;
+        const nextAngle = u.angle + 0.05;
+        school.position.set(Math.cos(u.angle) * u.radius, u.depth + Math.sin(elapsed * 1.2 + u.radius) * 1.2, Math.sin(u.angle) * u.radius);
+        school.lookAt(Math.cos(nextAngle) * u.radius, school.position.y, Math.sin(nextAngle) * u.radius);
+
+        school.children.forEach((fish) => {
+          if (fish.userData && fish.userData.tailGroup) {
+            fish.userData.tailGroup.rotation.y = Math.sin(elapsed * 11.5 + fish.userData.phase) * 0.38;
+          }
+        });
+      });
+
+      // Sea Turtles
+      state.turtles.forEach((turtle, idx) => {
+        const u = turtle.userData;
+        u.angle -= dt * 0.08;
+        const nextA = u.angle - 0.05;
+        turtle.position.set(Math.cos(u.angle) * u.radius, u.depth + Math.sin(elapsed + idx) * 1.1, Math.sin(u.angle) * u.radius);
+        turtle.lookAt(Math.cos(nextA) * u.radius, turtle.position.y, Math.sin(nextA) * u.radius);
+        const flap = Math.sin(elapsed * 3.5 + idx) * 0.35;
+        u.flipperL.rotation.z = flap;
+        u.flipperR.rotation.z = -flap;
+      });
+
+      // Occasional automatic rare marine sightings
+      ambientMarineTimer -= dt;
+      if (ambientMarineTimer <= 0) {
+        ambientMarineTimer = 28;
+        if (!state.whaleShark.active && Math.random() < 0.65) {
+          spawnWhaleShark();
+        } else if (!state.rareWhale.active && Math.random() < 0.35) {
+          spawnRareWhale();
+        }
+      }
+
+      // Update active Whale Shark
+      if (state.whaleShark.active) {
+        const ws = state.whaleShark;
+        ws.progress += dt * 0.028;
+        if (ws.progress >= 1) {
+          ws.active = false;
+          ws.group.visible = false;
+        } else {
+          const pt = ws.path.getPointAt(ws.progress);
+          const lookPt = ws.path.getPointAt(Math.min(1, ws.progress + 0.01));
+          ws.group.position.copy(pt);
+          ws.group.lookAt(lookPt);
+          ws.group.userData.tailGroup.rotation.y = Math.sin(elapsed * 3.2) * 0.25;
+        }
+      }
+
+      // Update active Rare Whale
+      if (state.rareWhale.active) {
+        const rw = state.rareWhale;
+        rw.progress += dt * 0.022;
+        if (rw.progress >= 1) {
+          rw.active = false;
+          rw.group.visible = false;
+        } else {
+          const pt = rw.path.getPointAt(rw.progress);
+          const lookPt = rw.path.getPointAt(Math.min(1, rw.progress + 0.01));
+          rw.group.position.copy(pt);
+          rw.group.lookAt(lookPt);
+          rw.group.userData.tailGroup.rotation.x = Math.sin(elapsed * 2.4) * 0.22;
+        }
+      }
+    }
+
+    function easeInOutCubic(t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    function animateLogistics(dt, elapsed) {
+      const h = state.helicopter;
+      const v = state.vessel;
+      let heliStatusText = 'Heli Standby';
+      let osvStatusText = 'OSV Standby';
+
+      // Windsock flutter on helideck
+      if (state.windsockMesh) {
+        state.windsockMesh.rotation.y = Math.sin(elapsed * 2.4) * 0.14;
+      }
+
+      // Subtle crane hook sway
+      if (state.craneHookGroup) {
+        state.craneHookGroup.rotation.z = Math.sin(elapsed * 1.3) * 0.035;
+      }
+
+      // Helicopter Rotor Spool & Strobe Logic
+      if (h.state !== 'IDLE_SHORE') {
+        const targetRpm = h.state === 'LANDED' ? 0.16 : 1.0;
+        h.rotorRpm = THREE.MathUtils.lerp(h.rotorRpm, targetRpm, dt * 1.8);
+        h.mainRotor.rotation.y += dt * 30 * h.rotorRpm;
+        h.tailRotor.rotation.x += dt * 38 * h.rotorRpm;
+        if (h.strobeLight) {
+          h.strobeLight.visible = Math.sin(elapsed * 16) > 0;
+        }
+      }
+
+      // Exact touchdown world position so wheels rest flush on the helipad surface
+      const touchdownPos = CONFIG.helipadWorldPos.clone().add(new THREE.Vector3(0, h.gearHeight, 0));
+      const hoverPos = CONFIG.helipadWorldPos.clone().add(new THREE.Vector3(0, 15.5, 0));
+
+      if (h.state === 'IDLE_SHORE') {
+        h.timer -= dt;
+        if (h.timer <= 0) {
+          triggerHelicopterFlight();
+        }
+      } else if (h.state === 'INBOUND') {
+        heliStatusText = 'Heli Inbound';
+        h.progress += dt * 0.075;
+        const t = Math.min(1, h.progress);
+        const ease = easeInOutCubic(t);
+
+        h.group.position.lerpVectors(h.startPos, hoverPos, ease);
+        h.group.position.y += Math.sin(t * Math.PI) * 18;
+
+        const lookTarget = new THREE.Vector3().lerpVectors(h.startPos, hoverPos, Math.min(1, ease + 0.04));
+        lookTarget.y = h.group.position.y;
+        h.group.lookAt(lookTarget);
+        h.group.rotateX(0.11 * (1 - ease));
+
+        if (t >= 1) {
+          h.state = 'HOVER_ALIGN';
+          h.progress = 0;
+        }
+      } else if (h.state === 'HOVER_ALIGN') {
+        heliStatusText = 'Heli Hovering';
+        h.progress += dt * 0.55;
+        const t = Math.min(1, h.progress);
+        h.group.position.lerp(hoverPos, dt * 5);
+        h.group.rotation.x = THREE.MathUtils.lerp(h.group.rotation.x, 0, dt * 5);
+        h.group.rotation.z = THREE.MathUtils.lerp(h.group.rotation.z, 0, dt * 5);
+
+        if (t >= 1) {
+          h.state = 'LANDING';
+          h.progress = 0;
+        }
+      } else if (h.state === 'LANDING') {
+        heliStatusText = 'Heli Touchdown';
+        h.progress += dt * 0.24;
+        const t = Math.min(1, h.progress);
+        const ease = easeInOutCubic(t);
+
+        h.group.position.lerpVectors(hoverPos, touchdownPos, ease);
+        h.group.rotation.x = 0;
+        h.group.rotation.z = 0;
+
+        if (t >= 1) {
+          h.group.position.copy(touchdownPos);
+          h.state = 'LANDED';
+          h.timer = 7.0;
+          addLog('[HELI] Touchdown confirmed on LQ Helipad — crew transfer active.');
+        }
+      } else if (h.state === 'LANDED') {
+        heliStatusText = 'Heli on Deck';
+        h.group.position.copy(touchdownPos);
+        h.timer -= dt;
+        if (h.timer <= 0) {
+          h.state = 'TAKEOFF';
+          h.progress = 0;
+          addLog('[HELI] Spooling rotors & lifting off from LQ Helipad.');
+        }
+      } else if (h.state === 'TAKEOFF') {
+        heliStatusText = 'Heli Liftoff';
+        h.progress += dt * 0.24;
+        const t = Math.min(1, h.progress);
+        const ease = easeInOutCubic(t);
+
+        h.group.position.lerpVectors(touchdownPos, hoverPos, ease);
+        h.group.rotation.x = 0;
+        h.group.rotation.z = 0;
+
+        if (t >= 1) {
+          h.state = 'OUTBOUND';
+          h.progress = 0;
+          h.startPos.copy(hoverPos);
+        }
+      } else if (h.state === 'OUTBOUND') {
+        heliStatusText = 'Heli Outbound';
+        h.progress += dt * 0.075;
+        const t = Math.min(1, h.progress);
+        const ease = easeInOutCubic(t);
+
+        h.group.position.lerpVectors(h.startPos, CONFIG.heliSpawnPos, ease);
+        h.group.position.y += Math.sin(t * Math.PI) * 16;
+
+        const lookTarget = new THREE.Vector3().lerpVectors(h.startPos, CONFIG.heliSpawnPos, Math.min(1, ease + 0.04));
+        lookTarget.y = h.group.position.y;
+        h.group.lookAt(lookTarget);
+        h.group.rotateX(0.12 * Math.sin(t * Math.PI));
+
+        if (t >= 1) {
+          h.state = 'IDLE_SHORE';
+          h.group.visible = false;
+          h.timer = 26;
+        }
+      }
+
+      // Offshore Supply Vessel (OSV) State Machine
+      const bobY = Math.sin(elapsed * 2.1) * 0.28;
+      const rollZ = Math.cos(elapsed * 1.7) * 0.03;
+
+      // Helper to align vessel bow (+Z) cleanly along horizontal travel vector with upright up (+Y)
+      function orientVesselAlong(fromVec, toVec, rollAmount) {
+        const dx = toVec.x - fromVec.x;
+        const dz = toVec.z - fromVec.z;
+        const headingY = Math.atan2(dx, dz);
+        v.group.rotation.order = 'YXZ';
+        v.group.rotation.set(0, headingY, rollAmount);
+      }
+
+      if (v.state === 'IDLE_SHORE') {
+        v.timer -= dt;
+        if (v.timer <= 0) {
+          triggerSupplyVessel();
+        }
+      } else if (v.state === 'INBOUND') {
+        osvStatusText = 'OSV Inbound';
+        v.progress += dt * 0.032;
+        const t = Math.min(1, v.progress);
+        const ease = 1 - Math.pow(1 - t, 2);
+        v.group.position.lerpVectors(CONFIG.osvSpawnPos, CONFIG.osvDockPos, ease);
+        v.group.position.y = bobY;
+        orientVesselAlong(CONFIG.osvSpawnPos, CONFIG.osvDockPos, rollZ);
+        v.wake.visible = true;
+
+        if (t >= 1) {
+          v.state = 'DOCKED';
+          v.timer = 9;
+          v.wake.visible = false;
+          addLog('[OSV] Alongside platform — crane transferring cargo & waste skips.');
+        }
+      } else if (v.state === 'DOCKED') {
+        osvStatusText = 'OSV Cargo Ops';
+        v.group.position.y = bobY;
+        v.group.rotation.z = rollZ;
+        v.timer -= dt;
+        if (v.timer <= 0) {
+          v.state = 'OUTBOUND';
+          v.progress = 0;
+          addLog('[OSV] Cargo & waste transfer complete. Departing for shore.');
+        }
+      } else if (v.state === 'OUTBOUND') {
+        osvStatusText = 'OSV Outbound';
+        v.progress += dt * 0.032;
+        const t = Math.min(1, v.progress);
+        const ease = t * t;
+        v.group.position.lerpVectors(CONFIG.osvDockPos, CONFIG.osvSpawnPos, ease);
+        v.group.position.y = bobY;
+        orientVesselAlong(CONFIG.osvDockPos, CONFIG.osvSpawnPos, rollZ);
+        v.wake.visible = true;
+
+        if (t >= 1) {
+          v.state = 'IDLE_SHORE';
+          v.group.visible = false;
+          v.timer = 22;
+        }
+      }
+
+      document.getElementById('logistics-status').textContent = `${osvStatusText} • ${heliStatusText}`;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      const elapsed = clock.getElapsedTime();
+
+      // Smooth camera preset transition if active
+      if (state.cameraTransition) {
+        const ct = state.cameraTransition;
+        ct.progress += dt * 1.4;
+        const t = Math.min(1, ct.progress);
+        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        camera.position.lerpVectors(ct.startPos, ct.endPos, ease);
+        controls.target.lerpVectors(ct.startTarget, ct.endTarget, ease);
+        if (t >= 1) state.cameraTransition = null;
+      }
+
+      controls.update();
+      updateAtmosphereForCamera();
+      animateOceanAndFlare(elapsed);
+      animateMarineLife(dt, elapsed);
+      animateLogistics(dt, elapsed);
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    window.onload = function () {
+      animate();
+    };
+  </script>
+</body>
+</html>
