@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1620">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2213%22 fill=%22none%22 stroke=%22%23f0b23a%22 stroke-width=%223%22/%3E%3Cpath d=%22M16 7v14M10 14l6 7 6-7%22 stroke=%22%23f0b23a%22 stroke-width=%222.5%22 fill=%22none%22/%3E%3C/svg%3E">
+  <title>Halcyon Shoal — Offshore Gas Field</title>
+  <link rel="stylesheet" href="css/hud.css">
+  <script type="importmap">
+    { "imports": { "three": "./js/vendor/three.module.js", "three/addons/": "./js/vendor/addons/" } }
+  </script>
+</head>
+<body>
+  <div id="viewport"></div>
+
+  <!-- Loading screen -->
+  <div id="loading">
+    <div class="load-card">
+      <div class="load-mark"></div>
+      <h1>Halcyon Shoal</h1>
+      <p>Offshore gas field · interactive model</p>
+      <div class="bar"><span id="load-bar"></span></div>
+      <div id="load-text">Preparing the scene…</div>
+    </div>
+  </div>
+
+  <div id="hud">
+    <!-- top bar -->
+    <header class="top">
+      <div class="brand panel">
+        <div>
+          <div class="title">HALCYON SHOAL</div>
+          <div class="sub">Offshore gas field <span class="tag">Fictional · Simulated data</span></div>
+        </div>
+        <span id="depth-badge" class="badge">+0 m</span>
+      </div>
+      <div class="telemetry panel" id="telemetry">
+        <div><label>Gas export</label><b id="m-gas">0</b><small>MMSCFD</small></div>
+        <div><label>Wellheads</label><b id="m-whp">0</b></div>
+        <div class="opt"><label>Trunkline</label><b id="m-press">0</b><small>bar</small></div>
+        <div class="opt wide"><label>Logistics</label><span id="m-log">—</span></div>
+      </div>
+      <div class="tools">
+        <button class="icon" id="btn-sound" title="Sound (off)" aria-label="Sound">🔇</button>
+        <button class="icon" id="btn-settings" title="Settings" aria-label="Settings">⚙</button>
+        <button class="icon" id="btn-cinema" title="Hide controls (H)" aria-label="Hide controls">◱</button>
+      </div>
+    </header>
+
+    <!-- settings popover -->
+    <div id="settings" class="panel popover hidden">
+      <h3>Settings</h3>
+      <div class="row"><label>Quality</label>
+        <select id="set-tier"><option value="auto">Automatic</option><option value="phone">Phone</option><option value="pc">PC (integrated graphics)</option><option value="plus">Plus</option></select></div>
+      <div class="row"><label>Time of day</label><div class="seg" id="set-tod">
+        <button data-v="midday">Midday</button><button data-v="golden">Golden</button><button data-v="dusk">Dusk</button><button data-v="night">Night</button></div></div>
+      <div class="row"><label>Sea state</label><div class="seg" id="set-sea">
+        <button data-v="calm">Calm</button><button data-v="moderate">Moderate</button><button data-v="rough">Rough</button></div></div>
+      <div class="row"><label>Simulation speed</label><div class="seg" id="set-speed">
+        <button data-v="1">1×</button><button data-v="2">2×</button><button data-v="4">4×</button><button data-v="8">8×</button></div></div>
+      <div class="row"><label>Labels</label><div class="seg" id="set-labels"><button data-v="on">On</button><button data-v="off">Off</button></div></div>
+      <div class="row"><label>Volume</label><input type="range" id="set-vol" min="0" max="1" step="0.05"></div>
+      <div class="row buttons"><button id="btn-shot">Save screenshot</button></div>
+      <p class="fine" id="tier-info"></p>
+    </div>
+
+    <!-- alerts and captions -->
+    <div id="alerts"></div>
+    <div id="caption" class="hidden"></div>
+
+    <!-- side panel / phone bottom sheet -->
+    <aside id="sheet" class="panel">
+      <nav class="tabs">
+        <button data-tab="field" class="on">Field</button>
+        <button data-tab="events">Events</button>
+        <button data-tab="views" class="phone-only">Views</button>
+        <button data-tab="map" class="phone-only">Map</button>
+      </nav>
+
+      <section class="pane" id="pane-field">
+        <div class="pane-head"><h3>Wellhead platforms</h3><button id="btn-add" class="small">+ Add</button></div>
+        <p class="fine" id="add-hint">Tap the field map to place a new wellhead. Drag a wellhead on the map to move it.</p>
+        <ul id="whp-list"></ul>
+        <div id="inspector" class="hidden">
+          <div class="insp-head"><b id="i-code">HS-WHP-01</b><button id="btn-close-insp" class="small ghost" aria-label="Close">✕</button></div>
+          <div class="grid">
+            <div><label>Flow rate</label><span id="i-flow"></span></div>
+            <div><label>Wellhead pressure</label><span id="i-press"></span></div>
+            <div><label>Distance to HS-CPP</label><span id="i-dist"></span></div>
+            <div><label>Flowline length</label><span id="i-line"></span></div>
+            <div><label>Water depth</label><span id="i-depth"></span></div>
+            <div><label>Wells</label><span>6</span></div>
+          </div>
+          <div class="row buttons"><button id="btn-fly">View in 3D</button><button id="btn-del" class="danger">Decommission</button></div>
+        </div>
+      </section>
+
+      <section class="pane hidden" id="pane-events">
+        <h3>Logistics</h3>
+        <div class="btn-grid">
+          <button id="ev-heli">Helicopter flight</button>
+          <button id="ev-vessel">Supply vessel</button>
+        </div>
+        <div class="row buttons follow-row"><button id="fol-heli" class="small ghost">Follow helicopter</button><button id="fol-vessel" class="small ghost">Follow vessel</button></div>
+        <h3>Marine sightings</h3>
+        <div class="btn-grid">
+          <button id="ev-shark">Whale shark</button>
+          <button id="ev-whale">Bryde's whale</button>
+        </div>
+        <h3>Log</h3>
+        <ol id="log"></ol>
+      </section>
+
+      <section class="pane views" id="pane-views">
+        <div class="viewbar panel-inner">
+          <button data-cam="overview" class="on">Overview</button>
+          <button data-cam="cpp">Process platform</button>
+          <button data-cam="flare">Flare</button>
+          <button data-cam="helideck">Living quarters</button>
+          <button data-cam="subsea">Subsea</button>
+          <button data-cam="wellhead">Wellhead</button>
+          <button data-cam="shore">Shore terminal</button>
+          <button id="btn-tour" class="accent">▶ Tour</button>
+        </div>
+      </section>
+
+      <section class="pane map" id="pane-map">
+        <div class="map-wrap panel-inner">
+          <div class="map-head"><b>Field map</b><span id="map-scale">±6 km</span>
+            <span class="map-btns"><button id="map-in" class="small ghost" aria-label="Zoom in">+</button><button id="map-out" class="small ghost" aria-label="Zoom out">−</button></span></div>
+          <canvas id="fieldmap"></canvas>
+        </div>
+      </section>
+    </aside>
+
+    <div id="labels"></div>
+    <div id="follow-chip" class="chip hidden"><span id="follow-text">Following</span><button id="btn-unfollow" class="small ghost">Stop</button></div>
+    <div id="help" class="panel hint">Drag to orbit · Right-drag or two fingers to pan · Scroll or pinch to zoom · <b>H</b> hides controls</div>
+  </div>
+
+  <button id="btn-show" class="panel hidden" title="Show controls (H)">Show controls</button>
+
+  <noscript><p class="noscript">This site needs JavaScript and a WebGL 2 capable browser.</p></noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
