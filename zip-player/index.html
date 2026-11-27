@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zip Player</title>
+<meta name="description" content="Open a zipped HTML project and play it on this device">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Zip Player">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#F6F6F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B0B0D" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="stylesheet" href="player.css">
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <a class="back" href="../" aria-label="Back to Daybook">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <div>
+      <h1>Zip Player</h1>
+      <p class="muted">Play a zipped HTML project. Files are unpacked on this device and never uploaded.</p>
+    </div>
+  </header>
+
+  <label class="drop" id="drop" for="pick">
+    <input type="file" id="pick" accept=".zip,application/zip,application/x-zip-compressed">
+    <span class="drop-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+    </span>
+    <span class="drop-title">Open a .zip file</span>
+    <span class="muted small">The project's index.html plays with all its linked files</span>
+  </label>
+
+  <div class="progress" id="progress" hidden>
+    <div class="row"><span id="progress-label">Unpacking…</span><span id="progress-pct"></span></div>
+    <div class="bar"><i id="progress-bar"></i></div>
+  </div>
+  <p class="error" id="error" role="alert" hidden></p>
+
+  <section class="entry-pick" id="entry-pick" hidden>
+    <h2>No index.html found. Which page should play?</h2>
+    <div id="entry-list" class="list"></div>
+  </section>
+
+  <section>
+    <div class="row-between">
+      <h2>On this device</h2>
+      <span class="muted small" id="usage"></span>
+    </div>
+    <div id="library" class="list"></div>
+  </section>
+
+  <p class="muted small foot">Projects stay saved here so you can replay them without the ZIP. Pages that need the internet, such as ones loading scripts from a CDN, still need a connection.</p>
+</main>
+
+<div class="player" id="player" hidden>
+  <iframe id="frame" title="Project" allow="fullscreen; autoplay; clipboard-write; accelerometer; gyroscope; xr-spatial-tracking; web-share" allowfullscreen></iframe>
+  <button class="close" id="close" type="button" aria-label="Close project">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="player.js"></script>
+</body>
+</html>
