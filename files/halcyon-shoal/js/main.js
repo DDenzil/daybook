@@ -77,7 +77,7 @@ async function boot() {
   // placeholders until stage 2 arrives
   const idle = { root: new THREE.Group(), pos: new THREE.Vector3(), state: 'IDLE', status: () => 'Loading…', trigger: () => false, update() {}, foamSpots: () => [], heading: 0, yaw: 0 };
   ctx.vessel = idle; ctx.heli = { ...idle, root: new THREE.Group() };
-  ctx.marine = { sightings: {}, spawnWhaleShark: () => false, spawnWhale: () => false, update() {}, target: () => new THREE.Object3D() };
+  ctx.marine = { sightings: {}, spawnWhaleShark: () => false, spawnWhale: () => false, spawnBlueWhale: () => false, spawnHammerheads: () => false, update() {}, target: () => new THREE.Object3D() };
 
   ctx.onFieldChanged = () => {
     ctx.seabed.setStructures(ctx.field.structures());
@@ -264,7 +264,7 @@ async function boot() {
   ctx.hud.log('[SYS] Halcyon Shoal online. All production figures are simulated.');
 
   // stage 2: vessel, helicopter, crew, marine life and birds
-  await ctx.assets.load(['psv', 'heli', 'crew', 'fish', 'turtle', 'whaleshark', 'whale', 'gull', 'dolphin', 'flyingfish', 'gull_perched']);
+  await ctx.assets.load(['psv', 'heli', 'crew', 'fish', 'turtle', 'whaleshark', 'whale', 'gull', 'dolphin', 'flyingfish', 'gull_perched', 'bluewhale', 'hammerhead']);
   const [psv, heli, crew] = await Promise.all([ctx.assets.instance('psv'), ctx.assets.instance('heli'), ctx.assets.instance('crew')]);
   ctx.vessel = new Vessel(ctx, psv); scene.add(ctx.vessel.root);
   ctx.heli = new Helicopter(ctx, heli, crew); scene.add(ctx.heli.root);
@@ -279,7 +279,7 @@ async function boot() {
     if (sightT < 0) {
       sightT = settings.marine.ambientSightingSeconds * (1.5 + Math.random());
       const r = Math.random();
-      if (r < 0.3) ctx.marine.spawnWhaleShark(); else if (r < 0.5) ctx.marine.spawnWhale(); else if (r < 0.8) ctx.marine.spawnDolphins(); else ctx.marine.spawnFlyingFish();
+      if (r < 0.22) ctx.marine.spawnWhaleShark(); else if (r < 0.36) ctx.marine.spawnWhale(); else if (r < 0.44) ctx.marine.spawnBlueWhale(); else if (r < 0.58) ctx.marine.spawnHammerheads(); else if (r < 0.8) ctx.marine.spawnDolphins(); else ctx.marine.spawnFlyingFish();
     }
   }, 1000);
 }

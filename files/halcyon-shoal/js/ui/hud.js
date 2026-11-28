@@ -82,6 +82,8 @@ export class HUD {
     };
     $('ev-shark').addEventListener('click', () => sighting('whaleshark', c.marine.spawnWhaleShark));
     $('ev-whale').addEventListener('click', () => sighting('whale', c.marine.spawnWhale));
+    $('ev-blue').addEventListener('click', () => sighting('bluewhale', c.marine.spawnBlueWhale));
+    $('ev-hammer').addEventListener('click', () => sighting('hammerheads', c.marine.spawnHammerheads));
     $('ev-dolphin').addEventListener('click', () => sighting('dolphins', c.marine.spawnDolphins));
     $('ev-flyfish').addEventListener('click', () => sighting('flyingfish', c.marine.spawnFlyingFish));
     $('fol-heli').addEventListener('click', () => { if (c.heli.root.visible) { c.rig.follow(c.heli.root, new THREE.Vector3(-45, 18, 60)); $('follow-text').textContent = 'Following the helicopter'; } else this.alert({ text: 'Start a helicopter flight first.', tone: 'amber' }); });
@@ -220,20 +222,21 @@ export class HUD {
       const sun = c.sky && c.sky.sunDir ? new THREE.Vector3(c.sky.sunDir.x, 0, c.sky.sunDir.z) : new THREE.Vector3(-d.z, 0, d.x);
       if (sun.lengthSq() < 1e-4) sun.set(-d.z, 0, d.x);
       sun.normalize();
-      c.rig.stopFollow();
-      c.rig.flyTo(new THREE.Vector3(p.x + sun.x * 50 + d.x * 10, 7, p.z + sun.z * 50 + d.z * 10), new THREE.Vector3(p.x + d.x * 22, 1.5, p.z + d.z * 22), 1.6);
+      // ride alongside the shoal as it moves (the anchor tracks the fish in the air)
+      c.rig.follow(c.marine.ffCentre, new THREE.Vector3(sun.x * 58 - d.x * 12, 9, sun.z * 58 - d.z * 12));
+      $('follow-text').textContent = 'Following the flying fish';
       return;
     }
     const obj = c.marine.target(kind); if (!obj) return;
     const p = new THREE.Vector3(); obj.getWorldPosition(p);
-    // close enough to see through the water: the whale is ~14 m long, dolphins ~2.5 m
-    const off = { whale: [20, 3, 22], dolphins: [9, 0, 11], whaleshark: [12, 2, 12] }[kind] || [12, 2, 12];
+    // close enough to see through the water: the whale is ~19 m long, the lead whale shark ~16 m, dolphins ~2.5 m
+    const off = { whale: [26, 3, 28], bluewhale: [26, 3, 28], hammerheads: [7, 1, 7], dolphins: [9, 0, 11], whaleshark: [17, 2, 17] }[kind] || [12, 2, 12];
     c.camera.position.copy(p).add(new THREE.Vector3(...off));
-    if (kind === 'whaleshark' || kind === 'whale') c.camera.position.y = Math.min(p.y + off[1], -2);
+    if (kind === 'whaleshark' || kind === 'whale' || kind === 'bluewhale' || kind === 'hammerheads') c.camera.position.y = Math.min(p.y + off[1], -2);
     if (kind === 'dolphins') c.camera.position.y = p.y - 1.6;   // the pod cruises 2-3 m down: watch from just under the surface
     c.rig.controls.target.copy(p);
     c.rig.follow(obj);
-    $('follow-text').textContent = { whale: "Following the Bryde's whale", dolphins: 'Following the dolphin pod', whaleshark: 'Following the whale shark' }[kind] || 'Following';
+    $('follow-text').textContent = { whale: "Following the Bryde's whale", bluewhale: 'Following the blue whale', hammerheads: 'Following the hammerheads', dolphins: 'Following the dolphin pod', whaleshark: 'Following the whale shark' }[kind] || 'Following';
   }
 
   alert({ text, tone = 'sky', follow }) {

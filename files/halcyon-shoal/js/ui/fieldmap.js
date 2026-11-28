@@ -132,7 +132,7 @@ export class FieldMap {
     // vessel & helicopter
     const v = c.vessel; if (v.root.visible) this.arrow(...this.toScreen(v.pos.x, v.pos.z), v.heading, '#5cc6d8', 6);
     const h = c.heli; if (h.root.visible) this.arrow(...this.toScreen(h.pos.x, h.pos.z), h.yaw, '#ff9d5c', 5);
-    for (const [k, col] of [['whaleshark', '#7fe0c8'], ['whale', '#a4a4ff'], ['dolphins', '#8fd0ff']]) {
+    for (const [k, col] of [['whaleshark', '#7fe0c8'], ['whale', '#a4a4ff'], ['bluewhale', '#6f8cff'], ['hammerheads', '#d0d6da'], ['dolphins', '#8fd0ff']]) {
       if (!c.marine.sightings[k]) continue;
       const o = c.marine.target(k).position; const [x, y] = this.toScreen(o.x, o.z);
       g.strokeStyle = col; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.stroke();

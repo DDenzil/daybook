@@ -13,6 +13,7 @@ Each file can be replaced by an artist-made model with the **same file name and 
 | `psv.glb` | midships at the waterline, bow +Y | `radar_1`, `radar_2` (spin), `cargo_lift` (container lifted by the CPP crane), `exhaust_l`, `exhaust_r` |
 | `heli.glb` | ground between the main wheels, nose +Y | `main_rotor` (spins about vertical), `rotor_disc`, `tail_rotor` (spins about X), `tail_disc`, `landing_light` |
 | `whaleshark.glb`, `whale.glb` | body centre, head +Y | `blowhole` (whale only). Bodies bend in the vertex shader, so keep enough edge loops along the length |
+| `bluewhale.glb`, `hammerhead.glb` | body centre, head -Z (glTF) | `blowhole` (blue whale). Same vertex-shader bend as above |
 | `turtle.glb` | shell centre | `flipper_l`, `flipper_r`, `hind_l`, `hind_r` (pivots at the shoulders) |
 | `fish.glb` | each fish at the origin | `fish_scad`, `fish_trevally`, `fish_barracuda`, `fish_grouper` |
 | `gull.glb` | body centre | `wing_l`, `wing_r` |
@@ -44,3 +45,12 @@ Baked ambient occlusion is stored as each material's glTF occlusion texture on U
 | flyingfish.glb | `flyingfish` | 0.3 m, pectoral "wings" spread; drawn instanced |
 | gull_perched.glb | `gull_body`, `wing_l`, `wing_r` (pivot at the shoulder; rotate about Z to lift) | Standing gull, feet at y = 0 |
 | psv.glb | `cargo_lift` now sits aft at (4.4, −34) so the CPP crane reaches it from the new station | |
+
+## Procedural models (Nov 2026)
+
+`whaleshark.glb` (redesigned, 14 m), `bluewhale.glb` (25 m) and `hammerhead.glb` (3.6 m) are generated in code with
+three.js r187 (lofted superellipse bodies, extruded fins, canvas-painted skin) and exported with GLTFExporter, then
+packed with `gltfpack -cc -kn -km -vtf -vp 16`. Materials: `creature_whaleshark`, `creature_whaleshark_dark`,
+`creature_remora`, `creature_bluewhale`, `creature_bluewhale_dark`, `creature_hammerhead`, `creature_hammerhead_dark`.
+The generator is in `tools/procedural/` of the designers' package. In the scene the whale shark is scaled 0.88–1.2 per
+animal, the Bryde's whale x1.3 (~19 m).
