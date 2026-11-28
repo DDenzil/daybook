@@ -563,7 +563,7 @@ export class Marine {
       f.delay = Math.pow(Math.random(), 1.6) * 6; f.sp = 13 + Math.random() * 4; f.T = (20 + Math.random() * 40) / f.sp; f.h = 0.5 + Math.random() * 1.0;
       f.launched = false; f.landed = false; f.age = -f.delay;
     }
-    this.sightings.flyingfish = { t: 0, sound: 0 };
+    this.sightings.flyingfish = { t: 0, sound: 0, centre: c.clone(), dir: dir.clone() };
     for (const m of this.ffMeshes) m.visible = true;
     this.ctx.events.emit('log', '[MARINE] A large shoal of flying fish broke the surface.');
     return true;

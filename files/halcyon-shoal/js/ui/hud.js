@@ -75,10 +75,15 @@ export class HUD {
 
     $('ev-heli').addEventListener('click', () => { if (c.heli.trigger() === false) this.alert({ text: 'The helicopter is already flying.', tone: 'amber' }); });
     $('ev-vessel').addEventListener('click', () => { if (!c.vessel.trigger()) this.alert({ text: 'MV Halcyon Star is already at sea.', tone: 'sky' }); });
-    $('ev-shark').addEventListener('click', () => { if (!c.marine.spawnWhaleShark()) this.alert({ text: 'The whale shark is still passing through.', tone: 'cyan' }); });
-    $('ev-whale').addEventListener('click', () => { if (!c.marine.spawnWhale()) this.alert({ text: "The Bryde's whale is still in the area.", tone: 'indigo' }); });
-    $('ev-dolphin').addEventListener('click', () => { if (!c.marine.spawnDolphins || !c.marine.spawnDolphins()) this.alert({ text: 'The dolphin pod is still in the area.', tone: 'cyan' }); });
-    $('ev-flyfish').addEventListener('click', () => { if (!c.marine.spawnFlyingFish || !c.marine.spawnFlyingFish()) this.alert({ text: 'A flying fish shoal is already in the air.', tone: 'cyan' }); });
+    // Marine sighting buttons: start the sighting (or use the one already in progress) and take the camera there
+    const sighting = (kind, spawn) => {
+      if (!c.marine.sightings[kind] && spawn) spawn.call(c.marine);
+      if (c.marine.sightings[kind]) requestAnimationFrame(() => this.followMarine(kind));
+    };
+    $('ev-shark').addEventListener('click', () => sighting('whaleshark', c.marine.spawnWhaleShark));
+    $('ev-whale').addEventListener('click', () => sighting('whale', c.marine.spawnWhale));
+    $('ev-dolphin').addEventListener('click', () => sighting('dolphins', c.marine.spawnDolphins));
+    $('ev-flyfish').addEventListener('click', () => sighting('flyingfish', c.marine.spawnFlyingFish));
     $('fol-heli').addEventListener('click', () => { if (c.heli.root.visible) { c.rig.follow(c.heli.root, new THREE.Vector3(-45, 18, 60)); $('follow-text').textContent = 'Following the helicopter'; } else this.alert({ text: 'Start a helicopter flight first.', tone: 'amber' }); });
     $('fol-vessel').addEventListener('click', () => { if (c.vessel.root.visible) { c.rig.follow(c.vessel.root, new THREE.Vector3(80, 40, 90)); $('follow-text').textContent = 'Following MV Halcyon Star'; } else this.alert({ text: 'Start a supply vessel voyage first.', tone: 'sky' }); });
 
@@ -205,23 +210,39 @@ export class HUD {
     while (ol.children.length > 40) ol.lastChild.remove();
   }
 
+  // Put the camera on a marine sighting and keep it there as the animal moves
+  followMarine(kind) {
+    const c = this.ctx;
+    if (kind === 'flyingfish') {   // a short-lived burst: fly over to watch it rather than follow one fish
+      const sh = c.marine.sightings.flyingfish; if (!sh || !sh.centre) return;
+      const p = sh.centre, d = sh.dir || new THREE.Vector3(1, 0, 0);
+      // watch from the sun's side, low over the water, so the shoal is lit and not lost in the glare
+      const sun = c.sky && c.sky.sunDir ? new THREE.Vector3(c.sky.sunDir.x, 0, c.sky.sunDir.z) : new THREE.Vector3(-d.z, 0, d.x);
+      if (sun.lengthSq() < 1e-4) sun.set(-d.z, 0, d.x);
+      sun.normalize();
+      c.rig.stopFollow();
+      c.rig.flyTo(new THREE.Vector3(p.x + sun.x * 50 + d.x * 10, 7, p.z + sun.z * 50 + d.z * 10), new THREE.Vector3(p.x + d.x * 22, 1.5, p.z + d.z * 22), 1.6);
+      return;
+    }
+    const obj = c.marine.target(kind); if (!obj) return;
+    const p = new THREE.Vector3(); obj.getWorldPosition(p);
+    // close enough to see through the water: the whale is ~14 m long, dolphins ~2.5 m
+    const off = { whale: [20, 3, 22], dolphins: [9, 0, 11], whaleshark: [12, 2, 12] }[kind] || [12, 2, 12];
+    c.camera.position.copy(p).add(new THREE.Vector3(...off));
+    if (kind === 'whaleshark' || kind === 'whale') c.camera.position.y = Math.min(p.y + off[1], -2);
+    if (kind === 'dolphins') c.camera.position.y = p.y - 1.6;   // the pod cruises 2-3 m down: watch from just under the surface
+    c.rig.controls.target.copy(p);
+    c.rig.follow(obj);
+    $('follow-text').textContent = { whale: "Following the Bryde's whale", dolphins: 'Following the dolphin pod', whaleshark: 'Following the whale shark' }[kind] || 'Following';
+  }
+
   alert({ text, tone = 'sky', follow }) {
     const box = $('alerts'); const el = document.createElement('div');
     el.className = 'alert ' + tone;
     el.appendChild(document.createTextNode(text));
     if (follow) {
       const b = document.createElement('button'); b.className = 'small ghost'; b.textContent = 'Follow';
-      b.addEventListener('click', () => {
-        const obj = this.ctx.marine.target(follow);
-        const p = new THREE.Vector3(); obj.getWorldPosition(p);
-        const off = { whale: [40, 14, 40], dolphins: [28, 9, 28], whaleshark: [12, 2, 12] }[follow] || [12, 2, 12];
-        this.ctx.camera.position.copy(p).add(new THREE.Vector3(...off));
-        if (follow === 'whaleshark') this.ctx.camera.position.y = Math.min(p.y + 1, -2);
-        this.ctx.rig.controls.target.copy(p);
-        this.ctx.rig.follow(obj);
-        $('follow-text').textContent = { whale: "Following the Bryde's whale", dolphins: 'Following the dolphin pod', whaleshark: 'Following the whale shark' }[follow] || 'Following';
-        el.remove();
-      });
+      b.addEventListener('click', () => { this.followMarine(follow); el.remove(); });
       el.appendChild(b);
     }
     box.appendChild(el);
