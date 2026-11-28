@@ -125,10 +125,16 @@ export class AudioSystem {
     this.vehicle('heli', this.ctx.heli.root, this.ctx.heli.root.visible, this.ctx.heli.state);
     this.vehicle('osv', this.ctx.vessel.root, this.ctx.vessel.root.visible, this.ctx.vessel.state);
     this.vehicle('osvhull', this.ctx.vessel.root, this.ctx.vessel.root.visible && this.ctx.vessel.speed > 1.5, 'HULL');
+    // gulls squabbling on the bridge (daytime, within earshot)
+    const night = this.ctx.sky.presetName === 'night';
+    const cam = this.ctx.camera.position;
+    const wantPerch = !night && !uw && Math.hypot(cam.x + 50, cam.z - 6) < 450;
+    if (wantPerch !== this.perchOn) { this.perchOn = wantPerch; if (wantPerch) this.play('gull_perched', new THREE.Vector3(-50, 34, 6), 0.7, 'perched'); else this.stop('perched'); }
     this.nextRandom -= dt;
     if (this.nextRandom < 0 && !uw) {
       const [id, a, b, vol] = RANDOM_ONESHOTS[Math.random() * RANDOM_ONESHOTS.length | 0];
       this.nextRandom = a + Math.random() * (b - a);
+      if (id === 'amb_gulls' && night) return;
       const p = this.ctx.camera.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 60, 10, (Math.random() - 0.5) * 60));
       this.play(id, p, vol);
     }

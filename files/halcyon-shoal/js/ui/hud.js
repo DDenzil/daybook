@@ -73,10 +73,12 @@ export class HUD {
       if (!c.field.removeWellhead(w)) this.alert({ text: 'At least one wellhead must stay online.', tone: 'amber' });
     });
 
-    $('ev-heli').addEventListener('click', () => { if (!c.heli.trigger()) this.alert({ text: 'The helicopter is already flying.', tone: 'amber' }); });
+    $('ev-heli').addEventListener('click', () => { if (c.heli.trigger() === false) this.alert({ text: 'The helicopter is already flying.', tone: 'amber' }); });
     $('ev-vessel').addEventListener('click', () => { if (!c.vessel.trigger()) this.alert({ text: 'MV Halcyon Star is already at sea.', tone: 'sky' }); });
     $('ev-shark').addEventListener('click', () => { if (!c.marine.spawnWhaleShark()) this.alert({ text: 'The whale shark is still passing through.', tone: 'cyan' }); });
     $('ev-whale').addEventListener('click', () => { if (!c.marine.spawnWhale()) this.alert({ text: "The Bryde's whale is still in the area.", tone: 'indigo' }); });
+    $('ev-dolphin').addEventListener('click', () => { if (!c.marine.spawnDolphins || !c.marine.spawnDolphins()) this.alert({ text: 'The dolphin pod is still in the area.', tone: 'cyan' }); });
+    $('ev-flyfish').addEventListener('click', () => { if (!c.marine.spawnFlyingFish || !c.marine.spawnFlyingFish()) this.alert({ text: 'A flying fish shoal is already in the air.', tone: 'cyan' }); });
     $('fol-heli').addEventListener('click', () => { if (c.heli.root.visible) { c.rig.follow(c.heli.root, new THREE.Vector3(-45, 18, 60)); $('follow-text').textContent = 'Following the helicopter'; } else this.alert({ text: 'Start a helicopter flight first.', tone: 'amber' }); });
     $('fol-vessel').addEventListener('click', () => { if (c.vessel.root.visible) { c.rig.follow(c.vessel.root, new THREE.Vector3(80, 40, 90)); $('follow-text').textContent = 'Following MV Halcyon Star'; } else this.alert({ text: 'Start a supply vessel voyage first.', tone: 'sky' }); });
 
@@ -212,11 +214,12 @@ export class HUD {
       b.addEventListener('click', () => {
         const obj = this.ctx.marine.target(follow);
         const p = new THREE.Vector3(); obj.getWorldPosition(p);
-        this.ctx.camera.position.copy(p).add(new THREE.Vector3(follow === 'whale' ? 40 : 12, follow === 'whale' ? 14 : 2, follow === 'whale' ? 40 : 12));
+        const off = { whale: [40, 14, 40], dolphins: [28, 9, 28], whaleshark: [12, 2, 12] }[follow] || [12, 2, 12];
+        this.ctx.camera.position.copy(p).add(new THREE.Vector3(...off));
         if (follow === 'whaleshark') this.ctx.camera.position.y = Math.min(p.y + 1, -2);
         this.ctx.rig.controls.target.copy(p);
         this.ctx.rig.follow(obj);
-        $('follow-text').textContent = follow === 'whale' ? "Following the Bryde's whale" : 'Following the whale shark';
+        $('follow-text').textContent = { whale: "Following the Bryde's whale", dolphins: 'Following the dolphin pod', whaleshark: 'Following the whale shark' }[follow] || 'Following';
         el.remove();
       });
       el.appendChild(b);

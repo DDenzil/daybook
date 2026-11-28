@@ -10,7 +10,8 @@ Put each file in this folder named `<ID>.mp3`, then add its ID to the `available
 | amb_machinery | Process plant hum, compressors, distant pumps | Loop | 30–60 s | Mono | Placed at the central platform |
 | amb_flare | Steady flare roar | Loop | 20–40 s | Mono | Placed at the flare tip |
 | amb_hvac | Roof fans and air-conditioning units | Loop | 20–30 s | Mono | Placed on the living quarters |
-| amb_gulls | Gulls calling, sparse | One-shot | 1–4 s | Mono | Played at random |
+| amb_gulls | Gulls calling, sparse | One-shot | 1–4 s | Mono | Played at random (daytime only) |
+| gull_perched | Gulls squabbling and calling close by | Loop | 20–40 s | Mono | Placed on the bridge, daytime only |
 | amb_metal_creak | Steel creaks and clanks | One-shot | 1–3 s | Mono | Played at random |
 | heli_distant | Distant helicopter drone | Loop | 15–30 s | Mono | Approach and departure |
 | heli_close | Close rotor beat and turbine whine | Loop | 15–30 s | Mono | Hover, landing, on deck |
@@ -21,6 +22,7 @@ Put each file in this folder named `<ID>.mp3`, then add its ID to the `available
 | osv_thrusters | Thruster whine and water churn while holding position | Loop | 20–40 s | Mono | Alongside the platform |
 | osv_hull_water | Water rushing along a moving hull | Loop | 20–40 s | Mono | |
 | osv_horn | Ship horn, one long blast | One-shot | 2–5 s | Mono | Arrival and departure |
+| osv_bow_slam | Bow slamming into a wave, heavy spray | One-shot | 1–3 s | Mono | Rough seas |
 | crane_winch | Hydraulic crane motor and winch | Loop | 10–20 s | Mono | During lifts |
 | crane_alarm | Lifting warning beeper | Loop | 2–5 s | Mono | During lifts |
 | cargo_set_down | Container landing on a steel deck | One-shot | 1–3 s | Mono | |
@@ -28,6 +30,11 @@ Put each file in this folder named `<ID>.mp3`, then add its ID to the `available
 | uw_machinery | Distant low machinery hum heard underwater | Loop | 30–60 s | Mono | Placed at the central platform |
 | uw_bubbles | Bubble stream | Loop | 10–20 s | Mono | Placed at bubble sources |
 | uw_whale_call | Low baleen whale calls | One-shot | 3–10 s | Mono | During whale sightings |
+| whale_blow | Whale exhaling at the surface (deep, breathy whoosh) | One-shot | 1–3 s | Mono | Whale surfacing |
+| dolphin_whistle | Dolphin whistles and clicks, heard underwater | One-shot | 1–4 s | Mono | Camera underwater near the pod |
+| dolphin_blow | Dolphin breath at the surface (short sharp "chuff") | One-shot | under 1 s | Mono | Each surfacing |
+| dolphin_splash | Dolphin leaping out and re-entering the water | One-shot | 1–2 s | Mono | Leaps |
+| flyingfish_splash | Patter of small splashes, many fish taking off | One-shot | 1–3 s | Mono | Flying fish shoal |
 | cam_splash_in | Camera plunging below the surface | One-shot | 1–2 s | Stereo | |
 | cam_splash_out | Camera breaking the surface | One-shot | 1–2 s | Stereo | |
 | ui_click | Soft button click | One-shot | under 0.3 s | Stereo | |

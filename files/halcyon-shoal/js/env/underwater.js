@@ -44,7 +44,7 @@ export class Underwater {
   setActive(on, scene, sky, preset) {
     this.active = on;
     this.group.visible = on;
-    sky.sky.visible = !on; sky.stars.visible = !on && sky.stars.material.opacity > 0;
+    sky.sky.visible = !on; sky.stars.visible = !on && sky.stars.material.opacity > 0; sky.nightGroup.visible = !on;
     if (on) {
       scene.fog.color.setHex(preset.uwFog); scene.fog.density = CONFIG.fogBelowDensity;
       scene.background = new THREE.Color(preset.uwFog);

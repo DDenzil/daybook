@@ -7,7 +7,7 @@ import { processModel } from './materials.js';
 // Models are meshopt-compressed .glb by default. A host that cannot serve .glb or run WebAssembly
 // can use base64 text copies of uncompressed .glb files: set <html data-models="txt"> and provide models/<name>.txt.
 const MODE = document.documentElement.dataset.models || 'glb';
-export const MODEL_LIST = Object.fromEntries(['cpp', 'lq', 'bridge', 'whp', 'psv', 'heli', 'whaleshark', 'whale', 'turtle', 'fish', 'gull', 'crew', 'seabed_props', 'shore'].map((n) => [n, `models/${n}.${MODE}`]));
+export const MODEL_LIST = Object.fromEntries(['cpp', 'lq', 'bridge', 'whp', 'psv', 'heli', 'whaleshark', 'whale', 'turtle', 'fish', 'gull', 'crew', 'seabed_props', 'shore', 'dolphin', 'flyingfish', 'gull_perched'].map((n) => [n, `models/${n}.${MODE}`]));
 
 export class Assets {
   constructor(renderer, onProgress) {

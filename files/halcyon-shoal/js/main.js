@@ -18,6 +18,8 @@ import { CameraRig } from './ui/camera.js';
 import { HUD } from './ui/hud.js';
 import { FieldMap } from './ui/fieldmap.js';
 import { AudioSystem } from './audio/audio.js';
+import { Obstacles } from './sim/obstacles.js';
+import { Splashes } from './life/splashes.js';
 
 const loadBar = document.getElementById('load-bar');
 const loadText = document.getElementById('load-text');
@@ -69,6 +71,8 @@ async function boot() {
   await ctx.field.build(settings);
   scene.add(ctx.field.group);
   ctx.telemetry = new Telemetry(ctx);
+  ctx.obstacles = new Obstacles(ctx);
+  ctx.splashes = new Splashes(ctx);
 
   // placeholders until stage 2 arrives
   const idle = { root: new THREE.Group(), pos: new THREE.Vector3(), state: 'IDLE', status: () => 'Loading…', trigger: () => false, update() {}, foamSpots: () => [], heading: 0, yaw: 0 };
@@ -79,6 +83,7 @@ async function boot() {
     ctx.seabed.setStructures(ctx.field.structures());
     ctx.seabed.update(camera);
     ctx.colliders = ctx.field.colliders();
+    ctx.obstacles.rebuild();
     ctx.fieldmap && ctx.fieldmap.draw();
   };
   ctx.seabed.setStructures(ctx.field.structures());
@@ -110,6 +115,16 @@ async function boot() {
     for (const s of [scene, ctx.shore && ctx.shore.scene].filter(Boolean)) { s.fog.color.setHex(p.fog); }
     if (ctx.underwater.active) ctx.underwater.setActive(true, scene, ctx.sky, p);
     ctx.lampLights.forEach((l) => { l.visible = ctx.night > 0.3; });
+    ctx.ocean.setMoon(ctx.sky.moonDir, ctx.sky.moonGlitter);
+    const night = name === 'night';
+    const evh = document.getElementById('ev-heli');
+    if (evh) { evh.classList.toggle('disabled', night); evh.title = night ? 'Helicopter operations are suspended at night' : ''; }
+    if (night && ctx.prevTod !== 'night') {
+      const m = ctx.sky.moonInfo;
+      ctx.hud.log(`[SKY] Moon: ${m.name}, ${Math.round(m.illum * 100)} % lit${ctx.sky.moonVisible ? (m.later ? ' (shown as it appears later tonight)' : '') : ' (not visible)'}.`);
+      ctx.heli.onNight && ctx.heli.onNight();
+    }
+    ctx.prevTod = name;
   };
   ctx.setSeaState = (name) => {
     ctx.state.seaState = name; safeSet('hs.sea', name);
@@ -192,11 +207,18 @@ async function boot() {
       ctx.seabed.update(camera);
       ctx.underwater.update(dt, simT, camera, surfaceY);
       ctx.field.update(dt, simT, ctx.wind);
+      ctx.obstacles.beginFrame();
       ctx.vessel.update(dt, simT, ctx.waves);
       ctx.heli.update(dt, simT);
       ctx.marine.update(dt, simT, ctx.waves);
       if (ctx.vessel.state !== 'ALONGSIDE' && ctx.field.crane) ctx.field.setCrane(null, dt);
-      ctx.ocean.setSpots([...ctx.field.waterlineSpots(ctx.waves.foam ?? 0.5), ...ctx.vessel.foamSpots(), ...ctx.heli.foamSpots(ctx.waves, simT)]);
+      ctx.splashes.update(dt, camera, ctx.night, renderer.toneMappingExposure);
+      // foam patches, nearest first (the sea shader takes a limited number)
+      const cx = camera.position.x, cz = camera.position.z;
+      const spots = [...ctx.field.waterlineSpots(ctx.waves.foam ?? 0.5), ...ctx.vessel.foamSpots(), ...ctx.heli.foamSpots(ctx.waves, simT), ...ctx.splashes.foamSpots()];
+      spots.sort((a, b) => ((a[0] - cx) ** 2 + (a[1] - cz) ** 2) - ((b[0] - cx) ** 2 + (b[1] - cz) ** 2));
+      ctx.ocean.setSpots(spots);
+      ctx.ocean.setHull(ctx.vessel.root.visible, ctx.vessel.root.position.x, ctx.vessel.root.position.z, ctx.vessel.heading);
       // light reflections on the water at dusk / night
       const lights = [];
       if (ctx.night > 0.1) {
@@ -242,16 +264,23 @@ async function boot() {
   ctx.hud.log('[SYS] Halcyon Shoal online. All production figures are simulated.');
 
   // stage 2: vessel, helicopter, crew, marine life and birds
-  await ctx.assets.load(['psv', 'heli', 'crew', 'fish', 'turtle', 'whaleshark', 'whale', 'gull']);
+  await ctx.assets.load(['psv', 'heli', 'crew', 'fish', 'turtle', 'whaleshark', 'whale', 'gull', 'dolphin', 'flyingfish', 'gull_perched']);
   const [psv, heli, crew] = await Promise.all([ctx.assets.instance('psv'), ctx.assets.instance('heli'), ctx.assets.instance('crew')]);
   ctx.vessel = new Vessel(ctx, psv); scene.add(ctx.vessel.root);
   ctx.heli = new Helicopter(ctx, heli, crew); scene.add(ctx.heli.root);
   const marine = new Marine(ctx); await marine.build(); scene.add(marine.group); ctx.marine = marine;
+  ctx.obstacles.addDynamic(() => ctx.vessel.hullSpheres());
+  ctx.obstacles.addDynamic(() => marine.spheres());
+  if (ctx.sky.presetName === 'night') ctx.heli.onNight();
   ctx.shore.load();   // preload the shore terminal in the background
   let sightT = settings.marine.ambientSightingSeconds;
   setInterval(() => {   // occasional unprompted sightings
     sightT -= 1 * ctx.state.simSpeed;
-    if (sightT < 0) { sightT = settings.marine.ambientSightingSeconds * (1.5 + Math.random()); if (Math.random() < 0.6) ctx.marine.spawnWhaleShark(); else ctx.marine.spawnWhale(); }
+    if (sightT < 0) {
+      sightT = settings.marine.ambientSightingSeconds * (1.5 + Math.random());
+      const r = Math.random();
+      if (r < 0.3) ctx.marine.spawnWhaleShark(); else if (r < 0.5) ctx.marine.spawnWhale(); else if (r < 0.8) ctx.marine.spawnDolphins(); else ctx.marine.spawnFlyingFish();
+    }
   }, 1000);
 }
 

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 import { waterNormalTexture } from '../core/noise.js';
 
-const MAXW = 10, MAXSPOTS = 24, MAXTRAIL = 40, MAXLIGHTS = 6;
+const MAXW = 10, MAXSPOTS = 48, MAXTRAIL = 40, MAXLIGHTS = 6;
 const BASE_WAVES = [ // wavelength m, amplitude m, direction deg (relative to wind), steepness
   [64, 0.42, 0, 0.55], [42, 0.27, -18, 0.55], [27, 0.17, 26, 0.5], [17, 0.1, -38, 0.5], [11, 0.062, 12, 0.45],
   [7.1, 0.04, 55, 0.4], [4.6, 0.025, -62, 0.35], [3.1, 0.016, 33, 0.3], [2.0, 0.01, -24, 0.3], [1.3, 0.006, 80, 0.25]];
@@ -120,6 +120,7 @@ uniform float uFogDensity, uUwDensity, uTime, uFoam, uEnvIntensity, uExposureFix
 uniform vec4 uSpots[${MAXSPOTS}]; uniform int uSpotCount;
 uniform vec4 uTrail[${MAXTRAIL}]; uniform int uTrailCount;
 uniform vec4 uLights[${MAXLIGHTS}]; uniform vec3 uLightCol[${MAXLIGHTS}]; uniform int uLightCount;
+uniform vec4 uHull; uniform float uHullOn; uniform vec3 uMoonDir, uMoonCol;
 varying vec3 vWorld; varying vec3 vNrm; varying float vHeight; varying float vDist; varying float vCrest;
 
 float segDist(vec2 p, vec2 a, vec2 b) {
@@ -129,6 +130,13 @@ float segDist(vec2 p, vec2 a, vec2 b) {
 
 void main() {
   #include <logdepthbuf_fragment>
+  // keep the sea out of the vessel's hull (its deck stays dry as it pitches through the waves)
+  if (uHullOn > 0.5) {
+    vec2 d = vWorld.xz - uHull.xy;
+    float lx = d.x * uHull.z - d.y * uHull.w, lz = d.x * uHull.w + d.y * uHull.z;
+    float halfW = 9.0 * sqrt(clamp((lz + 40.0) / 22.0, 0.0, 1.0));
+    if (lz > -40.0 && lz < 36.0 && abs(lx) < halfW) discard;
+  }
   vec3 V = normalize(cameraPosition - vWorld);
   vec2 uv1 = vWorld.xz * 0.06 + vec2(uTime * 0.021, uTime * 0.014);
   vec2 uv2 = vWorld.xz * 0.17 - vec2(uTime * 0.018, -uTime * 0.027);
@@ -155,6 +163,9 @@ void main() {
     float sss = pow(max(dot(V, normalize(-uSunDir + N * 0.5)), 0.0), 3.0) * clamp(vHeight * 0.7 + 0.35, 0.0, 1.0);
     vec3 water = uDeep * (vec3(0.1 + 0.25 * sunUp) + amb * 0.9 + uSunColor * sunUp * 0.3) + uScatter * (sss * uSunColor * 0.55 + amb * 0.05) * (1.0 - smoothstep(200.0, 3000.0, vDist));
     col = mix(water, sky, F) + uSunColor * spec;
+    // moon glitter path
+    float moonUp = clamp(uMoonDir.y * 4.0, 0.0, 1.0);
+    col += uMoonCol * pow(max(dot(R, uMoonDir), 0.0), shin * 0.3) * 7.0 * moonUp * (1.0 - smoothstep(1500.0, 9000.0, vDist));
     // reflections of lights at night (flare, deck lights, vessel)
     for (int i = 0; i < ${MAXLIGHTS}; i++) {
       if (i >= uLightCount) break;
@@ -224,7 +235,9 @@ export class Ocean {
       uSpots: { value: Array.from({ length: MAXSPOTS }, () => new THREE.Vector4()) }, uSpotCount: { value: 0 },
       uTrail: { value: Array.from({ length: MAXTRAIL }, () => new THREE.Vector4()) }, uTrailCount: { value: 0 },
       uLights: { value: Array.from({ length: MAXLIGHTS }, () => new THREE.Vector4()) },
-      uLightCol: { value: Array.from({ length: MAXLIGHTS }, () => new THREE.Color()) }, uLightCount: { value: 0 }
+      uLightCol: { value: Array.from({ length: MAXLIGHTS }, () => new THREE.Color()) }, uLightCount: { value: 0 },
+      uHull: { value: new THREE.Vector4() }, uHullOn: { value: 0 },
+      uMoonDir: { value: new THREE.Vector3(0, -1, 0) }, uMoonCol: { value: new THREE.Color(0, 0, 0) }
     };
     this.material = new THREE.ShaderMaterial({ uniforms: this.uniforms, vertexShader: VERT, fragmentShader: FRAG, side: THREE.DoubleSide, toneMapped: true });
     this.mesh = null;
@@ -269,6 +282,11 @@ export class Ocean {
     for (let i = 0; i < n; i++) u.uSpots.value[i].set(spots[i][0], spots[i][1], spots[i][2], spots[i][3]);
     u.uSpotCount.value = n;
   }
+  setHull(on, x, z, heading) {
+    const u = this.uniforms; u.uHullOn.value = on ? 1 : 0;
+    if (on) u.uHull.value.set(x, z, Math.cos(heading), Math.sin(heading));
+  }
+  setMoon(dir, color) { this.uniforms.uMoonDir.value.copy(dir); this.uniforms.uMoonCol.value.copy(color); }
   setTrail(points) {
     const u = this.uniforms; const n = Math.min(points.length, MAXTRAIL);
     for (let i = 0; i < n; i++) u.uTrail.value[i].set(points[i].x, points[i].z, points[i].w, points[i].s);

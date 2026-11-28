@@ -17,7 +17,7 @@ export const CONFIG = {
   // Logistics geometry
   heliSpawn: { x: 9500, y: 420, z: -3500 },
   vesselSpawn: { x: 7600, z: 5200 },
-  vesselStation: { x: 8, z: 64, heading: Math.PI },  // stern-to on the south face of the CPP
+  vesselStation: { x: 8, z: 91, heading: Math.PI },  // stern-to on the south face of the CPP, stern about 15 m clear of the jacket
 
   // Field limits
   minWellheadDistance: 1000,
@@ -26,7 +26,7 @@ export const CONFIG = {
   shoreDistanceKm: 78,
 
   fogAboveDensity: 1.15e-4,       // ~12 km visibility in Gulf haze
-  fogBelowDensity: 0.038,         // ~30 m underwater visibility
+  fogBelowDensity: 0.02,          // clear offshore water: structures readable to ~60 m, fading out by ~90 m
 
   camera: { fov: 50, near: 0.3, far: 160000 },
 

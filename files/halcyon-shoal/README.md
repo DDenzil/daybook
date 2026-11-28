@@ -86,3 +86,13 @@ The sound engine is complete; the sound files are supplied separately. Put each 
 - The site is public on GitHub Pages. Keep company data, photographs, documents and staff names out of the repository.
 - Transits from shore are time-skipped: the vessel appears about 2 km out and the helicopter about 6 km out; the HUD says so.
 - `window.HS` exposes the running scene in the browser console for debugging.
+
+
+## Wildlife, night and cargo update
+
+- **Night:** Milky Way and the moon at the real phase for today's date (it lights the sea and leaves a glitter path). Birds roost out of sight at night. Helicopter flights are suspended at night: an inbound flight turns back; one already landing completes its crew change and departs.
+- **Wildlife:** gulls perched on the bridge, a dolphin pod (surfacing, leaping, bow-riding the supply vessel), sudden flying-fish shoals. All appear in Events and turn up on their own from time to time.
+- **Collision avoidance** (`js/sim/obstacles.js`): the whale, whale shark, turtles, dolphins and the supply vessel steer round the jackets, wellhead platforms and each other; groupers keep clear of the jacket legs.
+- **Ship motion:** the vessel heaves, pitches and rolls with the sea under its hull, slams and throws spray at the bow in rough seas, and slows in heavy weather. The sea is kept out of the hull.
+- **Cargo** (`js/sim/crane.js`): each call delivers a container to a clear laydown slot and backloads one from the platform. Slots come from a ray-scanned height map of the platform (`tools/scan/`). Loads travel above everything under the swing path.
+- **Clearer water:** underwater visibility roughly doubled.

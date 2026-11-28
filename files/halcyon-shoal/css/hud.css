@@ -166,3 +166,4 @@ body.cinema #hud * { pointer-events: none !important; }
 @media (min-width: 761px) {
   .pane.views.tabhidden, .pane.map.tabhidden { display: block !important; }
 }
+button.disabled { opacity: .45; }

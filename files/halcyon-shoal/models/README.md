@@ -35,3 +35,12 @@ Each file can be replaced by an artist-made model with the **same file name and 
 | `creature_*` | skin (slightly rougher) |
 
 Baked ambient occlusion is stored as each material's glTF occlusion texture on UV set 1 (`lightmap`).
+
+## Added in the wildlife update
+
+| File | Nodes the app uses | Notes |
+| --- | --- | --- |
+| dolphin.glb | `dolphin` (body, bends up-and-down in the shader), `blowhole` | Indo-Pacific bottlenose, 2.6 m, nose along −Z |
+| flyingfish.glb | `flyingfish` | 0.3 m, pectoral "wings" spread; drawn instanced |
+| gull_perched.glb | `gull_body`, `wing_l`, `wing_r` (pivot at the shoulder; rotate about Z to lift) | Standing gull, feet at y = 0 |
+| psv.glb | `cargo_lift` now sits aft at (4.4, −34) so the CPP crane reaches it from the new station | |
