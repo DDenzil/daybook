@@ -1,4 +1,188 @@
 {
   "_readme": "List the IDs of the sound files you have added to this folder, e.g. [\"amb_sea_calm\", \"amb_flare\"]. Only listed files are requested.",
-  "available": []
+  "available": [
+    "amb_flare",
+    "amb_gulls",
+    "amb_hvac",
+    "amb_machinery",
+    "amb_metal_creak",
+    "amb_sea_calm",
+    "amb_sea_rough",
+    "amb_waves_steel",
+    "cam_splash_in",
+    "cam_splash_out",
+    "cargo_set_down",
+    "crane_alarm",
+    "crane_winch",
+    "dolphin_blow",
+    "dolphin_splash",
+    "dolphin_whistle",
+    "flyingfish_splash",
+    "gull_perched",
+    "heli_close",
+    "heli_distant",
+    "heli_spool_down",
+    "heli_spool_up",
+    "heli_touchdown",
+    "osv_bow_slam",
+    "osv_engine",
+    "osv_horn",
+    "osv_hull_water",
+    "osv_thrusters",
+    "ui_alert",
+    "ui_click",
+    "ui_deploy",
+    "uw_ambience",
+    "uw_bubbles",
+    "uw_machinery",
+    "uw_whale_call",
+    "whale_blow"
+  ],
+  "meta": {
+    "amb_flare": {
+      "frames": 384002,
+      "pad": 4800
+    },
+    "amb_gulls": {
+      "frames": 384002,
+      "pad": 0
+    },
+    "amb_hvac": {
+      "frames": 384002,
+      "pad": 4800
+    },
+    "amb_machinery": {
+      "frames": 360002,
+      "pad": 4800
+    },
+    "amb_metal_creak": {
+      "frames": 384002,
+      "pad": 0
+    },
+    "amb_sea_calm": {
+      "frames": 384002,
+      "pad": 4800
+    },
+    "amb_sea_rough": {
+      "frames": 384002,
+      "pad": 4800
+    },
+    "amb_waves_steel": {
+      "frames": 384002,
+      "pad": 4800
+    },
+    "cam_splash_in": {
+      "frames": 52800,
+      "pad": 0
+    },
+    "cam_splash_out": {
+      "frames": 48000,
+      "pad": 0
+    },
+    "cargo_set_down": {
+      "frames": 86400,
+      "pad": 0
+    },
+    "crane_alarm": {
+      "frames": 192000,
+      "pad": 4800
+    },
+    "crane_winch": {
+      "frames": 384002,
+      "pad": 4800
+    },
+    "dolphin_blow": {
+      "frames": 36000,
+      "pad": 0
+    },
+    "dolphin_splash": {
+      "frames": 72000,
+      "pad": 0
+    },
+    "dolphin_whistle": {
+      "frames": 166515,
+      "pad": 0
+    },
+    "flyingfish_splash": {
+      "frames": 105205,
+      "pad": 0
+    },
+    "gull_perched": {
+      "frames": 384002,
+      "pad": 4800
+    },
+    "heli_close": {
+      "frames": 384002,
+      "pad": 4800
+    },
+    "heli_distant": {
+      "frames": 355202,
+      "pad": 4800
+    },
+    "heli_spool_down": {
+      "frames": 288000,
+      "pad": 0
+    },
+    "heli_spool_up": {
+      "frames": 280076,
+      "pad": 0
+    },
+    "heli_touchdown": {
+      "frames": 105600,
+      "pad": 0
+    },
+    "osv_bow_slam": {
+      "frames": 91200,
+      "pad": 0
+    },
+    "osv_engine": {
+      "frames": 360002,
+      "pad": 4800
+    },
+    "osv_horn": {
+      "frames": 153091,
+      "pad": 0
+    },
+    "osv_hull_water": {
+      "frames": 384002,
+      "pad": 4800
+    },
+    "osv_thrusters": {
+      "frames": 360002,
+      "pad": 4800
+    },
+    "ui_alert": {
+      "frames": 31200,
+      "pad": 0
+    },
+    "ui_click": {
+      "frames": 4320,
+      "pad": 0
+    },
+    "ui_deploy": {
+      "frames": 26400,
+      "pad": 0
+    },
+    "uw_ambience": {
+      "frames": 336002,
+      "pad": 4800
+    },
+    "uw_bubbles": {
+      "frames": 345602,
+      "pad": 4800
+    },
+    "uw_machinery": {
+      "frames": 360002,
+      "pad": 4800
+    },
+    "uw_whale_call": {
+      "frames": 257555,
+      "pad": 0
+    },
+    "whale_blow": {
+      "frames": 115200,
+      "pad": 0
+    }
+  },
+  "_meta_readme": "frames = length in samples at 48 kHz; pad = wrap-around samples added before and after a loop so the MP3 encodes its join cleanly. audio.js trims these after decoding."
 }

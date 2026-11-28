@@ -40,6 +40,7 @@ export class AudioSystem {
     try {   // only request files listed as supplied (avoids 404s before the sounds are delivered)
       const m = await (await fetch('audio/manifest.json', { cache: 'no-cache' })).json();
       this.available = new Set(m.available || []);
+      this.meta = m.meta || {};
     } catch (e) { this.available = null; }
     for (const [id, type, p, ref, vol] of AMBIENT) {
       const buf = await this.load(id); if (!buf) continue;
@@ -65,9 +66,27 @@ export class AudioSystem {
       const res = await fetch(`audio/${id}.mp3`);
       if (!res.ok) throw new Error(res.status);
       const data = await res.arrayBuffer();
-      this.buffers[id] = await this.listener.context.decodeAudioData(data);
+      this.buffers[id] = this.trim(await this.listener.context.decodeAudioData(data), this.meta && this.meta[id]);
       return this.buffers[id];
     } catch (e) { this.missing.add(id); return null; }
+  }
+
+  // MP3 adds a little padding at each end, and some browsers keep it, which gaps loops.
+  // Loops are also encoded with `pad` samples of wrap-around audio on both sides.
+  // Cut the buffer back to exactly `frames` samples; any window inside the wrap is seamless.
+  trim(buf, m) {
+    if (!m || !m.frames) return buf;
+    const r = buf.sampleRate / 48000;
+    const n = Math.round(m.frames * r), pad = Math.round((m.pad || 0) * r);
+    const extra = buf.length - (n + 2 * pad);
+    const lead = extra > 0 ? Math.min(extra, Math.round(1105 * r)) : 0;   // LAME encoder + decoder delay
+    let start = pad + lead;
+    if (start + n > buf.length) start = Math.max(0, buf.length - n);
+    const len = Math.min(n, buf.length - start);
+    if (start === 0 && len === buf.length) return buf;
+    const out = this.listener.context.createBuffer(buf.numberOfChannels, len, buf.sampleRate);
+    for (let c = 0; c < buf.numberOfChannels; c++) out.copyToChannel(buf.getChannelData(c).subarray(start, start + len), c);
+    return out;
   }
 
   setEnabled(on) {
